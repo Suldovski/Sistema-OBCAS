@@ -8,11 +8,13 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-  <!-- Firebase (Firestore) - COMPAT (sem type="module") -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+  <!-- Firebase (Firestore) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyC_4T-ZoPhOtrR0-6M6poXwhTo0N0Wr6ro",
       authDomain: "bucagrans-obcas.firebaseapp.com",
@@ -23,8 +25,8 @@
       measurementId: "G-30D1H0BHVN"
     };
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
     // Identificador da base compartilhada (todos PCs usam o mesmo)
     const WORK_ID = "obcas";
@@ -33,12 +35,9 @@
     const WRITE_KEY = "Obcas2026";
 
     window.__obcasFirebase = {
-      db,
-      WORK_ID,
-      WRITE_KEY
+      db, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
+      WORK_ID, WRITE_KEY
     };
-
-    console.log("Firebase compat inicializado OK");
   </script>
 
   <style>
@@ -316,6 +315,25 @@
 </head>
 
 <body>
+
+  <!-- LOCK SCREEN (só visual) -->
+  <div class="modal-bg open" id="modal-view-pass" style="display:flex">
+    <div class="modal" style="width:360px">
+      <h3>Acesso restrito</h3>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="view-pass" placeholder="Digite a senha" />
+        <div class="pass-err" id="view-pass-err">Senha incorreta.</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-blue" onclick="unlockView()">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP CONTENT (tudo dentro fica escondido até destravar) -->
+  <div id="app-content" style="display:none">
+
   <div class="header">
     <div class="logo-area">
       <img class="logo-img" src="logo.jpg" alt="Bucagrans" onerror="this.style.display='none'" />
@@ -540,12 +558,55 @@
     </div>
   </div>
 
+</div> <!-- /app-content -->
+
 <script>
 /* =============================
    CONFIG
 ============================= */
 const SENHA = "Obcas2026";
 
+/* =============================
+   VIEW LOCK (só visual)
+============================= */
+function lockView() {
+  const app = document.getElementById('app-content');
+  const modal = document.getElementById('modal-view-pass');
+  const err = document.getElementById('view-pass-err');
+  const input = document.getElementById('view-pass');
+
+  if (app) app.style.display = 'none';
+  if (modal) modal.style.display = 'flex';
+  if (err) err.style.display = 'none';
+  if (input) input.value = '';
+}
+
+function unlockView() {
+  const input = document.getElementById('view-pass');
+  const err = document.getElementById('view-pass-err');
+  const modal = document.getElementById('modal-view-pass');
+  const app = document.getElementById('app-content');
+
+  const p = (input?.value || '').trim();
+  if (p !== SENHA) {
+    if (err) err.style.display = 'block';
+    return;
+  }
+
+  if (app) app.style.display = 'block';
+  if (modal) modal.style.display = 'none';
+
+  // Só depois de desbloquear: render + sync
+  renderTabela();
+  iniciarSyncRemoto();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  lockView();
+  document.getElementById('view-pass')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') unlockView();
+  });
+});
 /* =============================
    STATE
 ============================= */
@@ -565,17 +626,17 @@ let __hydratingFromRemote = false;
 let __lastRemoteJson = '';
 
 /* =============================
-   FIRESTORE SYNC (COMPAT)
+   FIRESTORE SYNC
 ============================= */
 function fb() {
   const x = window.__obcasFirebase;
-  if (!x) throw new Error('Firebase não inicializou.');
+  if (!x) throw new Error('Firebase não inicializou (script type="module").');
   return x;
 }
 
 function dbRef() {
-  const { db, WORK_ID } = fb();
-  return db.collection('obras').doc(WORK_ID);
+  const { db, doc, WORK_ID } = fb();
+  return doc(db, 'obras', WORK_ID);
 }
 
 function stableJson(obj) {
@@ -596,21 +657,19 @@ async function salvarRemoto(reason = 'update') {
   // Se estamos aplicando snapshot remoto, não regravar.
   if (__hydratingFromRemote) return;
 
-  const { WRITE_KEY } = fb();
+  const { setDoc, serverTimestamp, WRITE_KEY } = fb();
   const payload = getPayloadForRemote();
 
   const jsonNow = JSON.stringify(payload);
   // Se não mudou vs último remoto, não grava
   if (jsonNow === __lastRemoteJson) return;
 
-  await dbRef().set({
+  await setDoc(dbRef(), {
     ...payload,
     writeKey: WRITE_KEY,
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: serverTimestamp(),
     updatedReason: reason
   }, { merge: true });
-
-  __lastRemoteJson = jsonNow;
 }
 
 function applyRemoteDoc(data) {
@@ -631,9 +690,11 @@ function applyRemoteDoc(data) {
 }
 
 function iniciarSyncRemoto() {
-  dbRef().onSnapshot((snap) => {
-    if (!snap.exists) {
+  const { onSnapshot } = fb();
+  onSnapshot(dbRef(), (snap) => {
+    if (!snap.exists()) {
       // primeira vez: cria doc vazio (para todos PCs terem base)
+      // não chama salvarRemoto (regras exigem writeKey, mas aqui já tem)
       salvarRemoto('init').catch(console.error);
       return;
     }
@@ -1559,8 +1620,8 @@ function baixarModelo(){
 /* =============================
    INIT
 ============================= */
-renderTabela();
-iniciarSyncRemoto();
+// IMPORTANTE: agora quem chama renderTabela() e iniciarSyncRemoto()
+// é o unlockView(). Não inicialize aqui para não vazar dados antes.
 </script>
 </body>
 </html>
