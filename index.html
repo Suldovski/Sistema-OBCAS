@@ -1573,6 +1573,8 @@ function processarArquivo(file){
         const re = (row[idxRE]||'').toString().trim();
         const adm = (idxADM>=0) ? parseData(row[idxADM]) : '';
         const funcao = (idxFUN>=0) ? (row[idxFUN]||'').toString().trim() : '';
+        const nasc = (idxNASC>=0) ? parseData(row[idxNASC]) : '';
+        const cbo  = (idxCBO>=0)  ? (row[idxCBO]||'').toString().trim() : '';
         const salh = (idxSALH>=0) ? fmtMoney(row[idxSALH]) : '';
         const salm = (idxSALM>=0) ? fmtMoney(row[idxSALM]) : '';
         const situacao = (idxSIT>=0) ? (row[idxSIT]||'').toString().trim() : '';
@@ -1587,7 +1589,9 @@ function processarArquivo(file){
         const rec = ensureId({
           re, nome, funcao,
           setor: setorFromFuncao(funcao),
-          admissao: adm,
+          admissao: adm,  
+          nasc,       
+          cbo,        
           exp30: exp30FromAdmissao(adm),
           exp60: exp60FromAdmissao(adm),
           aso: '',
