@@ -312,35 +312,30 @@
       .stats{grid-template-columns:repeat(4,1fr)}
       .rankings{grid-template-columns: 1fr}
       .form-row{grid-template-columns:1fr}
-/* ===== LOCK SCREEN: fundo só com a imagem (sem escuro/blur) ===== */
+/* LOCK SCREEN: fundo branco e modal centralizado */
 #modal-view-pass{
   position: fixed;
   inset: 0;
-  isolation: isolate;
 
-  /* remove o overlay escuro do .modal-bg */
-  background: transparent !important;
-  backdrop-filter: none !important;
+  background: #ffffff !important;   /* fundo branco */
+  backdrop-filter: none !important; /* sem blur */
+
+  display: flex !important;
+  align-items: center !important;   /* centraliza vertical */
+  justify-content: center !important; /* centraliza horizontal */
+  padding: 16px !important;
 }
 
-/* imagem nítida cobrindo toda a tela */
+/* remove qualquer fundo/overlay anterior */
 #modal-view-pass::before{
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-
-  background: url("./logo.jpeg") center / cover no-repeat;
-
-  opacity: 1;                 /* imagem 100% */
-  filter: none;               /* nítida */
-  pointer-events: none;
+  content: none !important;
 }
 
-/* modal em cima */
+/* garante que o card não “encoste” nas bordas no celular */
 #modal-view-pass > .modal{
-  position: relative;
-  z-index: 1;
+  margin: 0 !important;
+  width: 360px;
+  max-width: 92vw;
 }
   </style>
 </head>
