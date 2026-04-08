@@ -922,6 +922,8 @@ function migrateData() {
     ensureId(r);
     r.re ??= ''; r.nome ??= ''; r.funcao ??= ''; r.setor ??= '';
     r.admissao ??= ''; r.exp30 ??= ''; r.exp60 ??= ''; r.aso ??= '';
+     r.nasc ??= '';   
+    r.cbo ??= ''; 
     r.salh ??= ''; r.salm ??= '';
     if (r.salh !== '') r.salh = fmtMoney(r.salh);
     if (r.salm !== '') r.salm = fmtMoney(r.salm);
