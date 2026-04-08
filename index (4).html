@@ -1,0 +1,1565 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bucagrans - OBCAS</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Firebase (Firestore) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC_4T-ZoPhOtrR0-6M6poXwhTo0N0Wr6ro",
+      authDomain: "bucagrans-obcas.firebaseapp.com",
+      projectId: "bucagrans-obcas",
+      storageBucket: "bucagrans-obcas.firebasestorage.app",
+      messagingSenderId: "404625263745",
+      appId: "1:404625263745:web:f6d7717f54f94d85df5180",
+      measurementId: "G-30D1H0BHVN"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Identificador da base compartilhada (todos PCs usam o mesmo)
+    const WORK_ID = "obcas";
+
+    // "Senha da obra" usada SOMENTE para permitir escrita no Firestore (Rules)
+    const WRITE_KEY = "Obcas2026";
+
+    window.__obcasFirebase = {
+      db, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
+      WORK_ID, WRITE_KEY
+    };
+  </script>
+
+  <style>
+    :root{
+      --bg:#f6f8fa; --surface:#fff; --surface2:#f3f4f6;
+      --border:#d0d7de; --border2:#eaeef2;
+      --text:#1f2328; --text2:#57606a; --text3:#6e7781;
+      --blue:#1f6feb; --blue-light:#388bfd;
+      --green:#2da44e; --red:#cf222e; --orange:#bf8700;
+      --purple:#8250df; --teal:#1f7a6e; --pink:#bf3989;
+      --radius-lg:12px;
+    }
+
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+    .main{ width:100%; max-width:none; margin:0; padding:18px 18px; }
+    @media (max-width: 600px){ .main{ padding: 12px 10px; } }
+
+    .header{
+      background:#111827;border-bottom:1px solid rgba(255,255,255,.12);
+      padding:0 18px;display:flex;align-items:center;justify-content:space-between;
+      height:64px;position:sticky;top:0;z-index:100;gap:16px;
+    }
+    .logo-area{display:flex;align-items:center;gap:14px}
+    .logo-img{height:38px;width:auto;object-fit:contain;filter:brightness(1.1)}
+    .logo-divider{width:1px;height:32px;background:rgba(255,255,255,.18)}
+    .logo-title{font-size:13px;font-weight:900;color:#fff;letter-spacing:.02em}
+    .logo-sub{font-size:11px;color:rgba(255,255,255,.72);margin-top:1px}
+    .header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .date-badge{
+      font-family:'DM Mono',monospace;font-size:11px;color:rgba(255,255,255,.75);
+      padding:5px 10px;border:1px solid rgba(255,255,255,.14);
+      border-radius:6px;background:rgba(255,255,255,.06)
+    }
+
+    .btn{
+      padding:7px 15px;border-radius:7px;border:1px solid var(--border);
+      background:var(--surface);color:var(--text);
+      font-size:12px;font-family:'Sora',sans-serif;font-weight:800;
+      cursor:pointer;transition:all .15s;white-space:nowrap;
+      display:inline-flex;align-items:center;gap:6px;
+    }
+    .btn:hover{background:var(--surface2);border-color:#b6bec7}
+    .btn-blue{background:var(--blue);border-color:var(--blue);color:#fff}
+    .btn-blue:hover{background:var(--blue-light);border-color:var(--blue-light)}
+    .btn-green{background:var(--green);border-color:var(--green);color:#fff}
+    .btn-green:hover{background:#2db35a;border-color:#2db35a}
+    .btn-red{background:var(--red);border-color:var(--red);color:#fff}
+    .btn-red:hover{background:#d1242f;border-color:#d1242f}
+    .btn-sm{padding:4px 10px;font-size:11px;border-radius:6px}
+    .btn-ghost{background:transparent;border-color:transparent;color:var(--text2)}
+    .btn-ghost:hover{background:var(--surface2);border-color:var(--border);color:var(--text)}
+
+    .stats{ display:grid; grid-template-columns:repeat(7,1fr); gap:10px; margin-bottom:14px; }
+    .stat-card{
+      background:var(--surface);border:1px solid var(--border);
+      border-radius:var(--radius-lg);padding:16px 18px;cursor:pointer;
+      transition:all .2s;position:relative;overflow:hidden;
+      box-shadow:0 1px 0 rgba(27,31,36,.04);
+      min-height: 92px;
+    }
+    .stat-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:4px;background:var(--card-accent,var(--border))}
+    .stat-card:hover{border-color:var(--card-accent,var(--border));transform:translateY(-1px)}
+    .stat-card.active{border-color:var(--card-accent,var(--blue));background:#f7fbff}
+    .stat-card[data-filter="all"]{--card-accent:var(--blue)}
+    .stat-card[data-filter="ef"]{--card-accent:var(--teal)}
+    .stat-card[data-filter="pj"]{--card-accent:#0ea5e9}
+    .stat-card[data-filter="adm"]{--card-accent:var(--purple)}
+    .stat-card[data-filter="op"]{--card-accent:var(--green)}
+    .stat-card[data-filter="terc"]{--card-accent:var(--orange)}
+    .stat-card[data-filter="mob"]{--card-accent:var(--pink)}
+    .stat-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;font-weight:900;margin-bottom:6px}
+    .stat-val{font-size:34px;font-weight:900;color:var(--text);line-height:1}
+
+    .card{
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:var(--radius-lg);
+      overflow: visible;
+      box-shadow:0 1px 0 rgba(27,31,36,.04);
+      width: 100%;
+      max-width: none;
+    }
+
+    .card-toolbar{
+      display:flex;align-items:center;padding:14px 16px;gap:10px;flex-wrap:wrap;
+      border-bottom:1px solid var(--border2);background:#fbfcfe
+    }
+    .search-wrap{position:relative;flex:1;min-width:260px;max-width:520px}
+    .search-wrap input{
+      width:100%;padding:8px 12px 8px 14px;border-radius:8px;border:1px solid var(--border);
+      background:var(--surface);color:var(--text);font-size:12px;font-family:'Sora',sans-serif;
+      outline:none;transition:border-color .15s,box-shadow .15s;
+    }
+    .search-wrap input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(31,111,235,.15)}
+    .filter-label{
+      display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);
+      padding:6px 10px;background:var(--surface);border:1px solid var(--border);
+      border-radius:999px;font-weight:900;
+    }
+    .filter-dot{width:8px;height:8px;border-radius:50%}
+    .toolbar-right{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+
+    .table-wrap{
+      width: 100%;
+      max-width: none;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table{
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      min-width: 1380px;
+      font-size: 12px;
+    }
+
+    th, td{
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      vertical-align: middle;
+      height: 44px;
+      line-height: 1.25;
+    }
+
+    th{
+      text-align:left;
+      font-size:10px;font-weight:900;color:var(--text2);
+      text-transform:uppercase;letter-spacing:.08em;
+      background:#fbfcfe;position:sticky;top:0;z-index:1;
+    }
+
+    td{color:var(--text2)}
+    td.name-col{color:var(--text);font-weight:900}
+    td.mono{font-family:'DM Mono',monospace;font-size:11px;color:#44505c}
+    tr:hover td{background:#f6f8fa}
+    tr:last-child td{border-bottom:none}
+
+    /* EXP: só cor (vencido normal) */
+    td.exp-soon{ color: var(--red) !important; font-weight: 900; }
+    td.exp-warn{ color: var(--orange) !important; font-weight: 900; }
+
+    .actions-col{display:flex;gap:6px;justify-content:flex-end}
+    .icon-btn{
+      width:26px;height:26px;border-radius:8px;
+      border:1px solid var(--border);
+      background:var(--surface);
+      cursor:pointer;
+      display:inline-flex;align-items:center;justify-content:center;
+      font-size:12px;font-weight:900;
+      transition:all .15s;
+      user-select:none;
+      padding: 0;
+      line-height: 1;
+    }
+    .icon-btn:hover{background:var(--surface2);border-color:#b6bec7}
+    .icon-btn.edit{color:#8a5c00;border-color:#f2c94c;background:#fff7e6}
+    .icon-btn.del{color:#fff;border-color:var(--red);background:var(--red)}
+
+    th.col-re, td.col-re{width:100px}
+    th.col-nome, td.col-nome{width:260px}
+    th.col-tipo, td.col-tipo{width:120px}
+    th.col-func, td.col-func{width:260px}
+    th.col-setor, td.col-setor{width:140px}
+    th.col-adm, td.col-adm{width:120px}
+    th.col-exp, td.col-exp{width:110px}
+    th.col-aso, td.col-aso{width:120px}
+    th.col-salh, td.col-salh{width:120px}
+    th.col-salm, td.col-salm{width:140px}
+    th.col-acoes, td.col-acoes{width:80px}
+
+    .badge{
+      display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:999px;
+      font-size:10px;font-weight:900;letter-spacing:.03em;border:1px solid transparent;
+    }
+    .badge::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor}
+    .badge-terc{background:#fff4d6;color:#8a5c00;border-color:#fde68a}
+    .badge-mob-e{background:#eafff0;color:#166534;border-color:#bbf7d0}
+    .badge-mob-s{background:#ffe5e5;color:#b42318;border-color:#fda29b}
+
+    .empty{text-align:center;padding:60px 20px;color:#8c959f;font-size:13px;display:none}
+
+    .rankings{ margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .rank-card{
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow:0 1px 0 rgba(27,31,36,.04);
+    }
+    .rank-head{
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border2);
+      background:#fbfcfe;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 10px;
+    }
+    .rank-title{font-size:12px;font-weight:900;color:var(--text);letter-spacing:.02em}
+    .rank-sub{font-size:11px;color:var(--text2);font-weight:800}
+    .rank-body{padding: 8px 10px 12px}
+    .rank-row{
+      display:grid;
+      grid-template-columns: 36px 1fr 70px;
+      gap: 10px;
+      align-items:center;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border2);
+      font-size: 12px;
+    }
+    .rank-row:last-child{border-bottom:none}
+    .rank-pos{font-family:'DM Mono', monospace; color: var(--text2); font-weight: 900}
+    .rank-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight: 800; color: var(--text); }
+    .rank-val{ font-family:'DM Mono', monospace; text-align:right; color: var(--text2); font-weight: 900; }
+
+    .modal-bg{
+      display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);
+      z-index:200;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;
+    }
+    .modal-bg.open{display:flex}
+    .modal{
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+      padding:24px;width:560px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.35);
+      margin-bottom:40px;animation:slideIn .2s ease;
+    }
+    @keyframes slideIn{from{transform:translateY(-16px);opacity:0}to{transform:none;opacity:1}}
+    .modal h3{font-size:15px;font-weight:900;margin-bottom:18px;color:var(--text)}
+    .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+
+    .confirm-modal{
+      background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+      padding:24px;width:380px;max-width:96vw;box-shadow:0 24px 64px rgba(0,0,0,.35);
+      animation:slideIn .2s ease;
+    }
+    .confirm-modal p{font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6;font-weight:800}
+
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .form-group{display:flex;flex-direction:column;gap:5px}
+    .form-group.full{grid-column:1/-1}
+    .form-group label{font-size:10px;color:var(--text2);font-weight:900;text-transform:uppercase;letter-spacing:.06em}
+    .form-group input,.form-group select{
+      padding:8px 11px;border-radius:8px;border:1px solid var(--border);background:var(--surface);
+      color:var(--text);font-size:12px;font-family:'Sora',sans-serif;outline:none;
+      transition:border-color .15s,box-shadow .15s;
+    }
+    .form-group input:focus,.form-group select:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(31,111,235,.15)}
+
+    .edit-tabs{display:flex;gap:6px;margin-bottom:18px;padding:4px;background:var(--surface2);border-radius:10px;border:1px solid var(--border)}
+    .edit-tab{
+      flex:1;padding:7px 10px;border-radius:8px;border:none;background:transparent;color:var(--text2);
+      font-size:12px;font-family:'Sora',sans-serif;font-weight:900;cursor:pointer;transition:all .15s;text-align:center;
+    }
+    .edit-tab:hover{color:var(--text);background:#eaeef2}
+    .edit-tab.active{background:var(--blue);color:#fff}
+
+    .feedback{font-size:12px;min-height:18px;margin-top:10px;font-weight:900}
+    .pass-err{font-size:12px;color:var(--red);margin-top:6px;display:none;font-weight:900}
+
+    .transfer-section{margin-top:16px;padding-top:16px;border-top:1px solid var(--border2)}
+    .transfer-section label{font-size:10px;color:var(--text2);font-weight:900;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px}
+    .transfer-btns{display:flex;gap:6px;flex-wrap:wrap}
+
+    @media (max-width:1100px){
+      .stats{grid-template-columns:repeat(4,1fr)}
+      .rankings{grid-template-columns: 1fr}
+      .form-row{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <div class="logo-area">
+      <img class="logo-img" src="logo.jpg" alt="Bucagrans" onerror="this.style.display='none'" />
+      <div class="logo-divider"></div>
+      <div class="logo-text">
+        <div class="logo-title">BUCAGRANS CONSTRUTORA DE OBRAS LTDA</div>
+        <div class="logo-sub">OBCAS - UHE Castro Alves</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="date-badge" id="date-badge"></span>
+      <button class="btn btn-blue" onclick="openEditPanel()">Editar</button>
+      <button class="btn" onclick="window.print()">Exportar PDF</button>
+      <button class="btn btn-red" onclick="openWipeAll()">Apagar tudo</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="stats">
+      <div class="stat-card active" data-filter="all" onclick="setFilter('all',this)">
+        <div class="stat-label">Total Geral</div>
+        <div class="stat-val" id="stat-total">0</div>
+      </div>
+      <div class="stat-card" data-filter="ef" onclick="setFilter('ef',this)">
+        <div class="stat-label">Efetivos</div>
+        <div class="stat-val" id="stat-ef">0</div>
+      </div>
+      <div class="stat-card" data-filter="pj" onclick="setFilter('pj',this)">
+        <div class="stat-label">PJ</div>
+        <div class="stat-val" id="stat-pj">0</div>
+      </div>
+      <div class="stat-card" data-filter="adm" onclick="setFilter('adm',this)">
+        <div class="stat-label">ADM</div>
+        <div class="stat-val" id="stat-adm">0</div>
+      </div>
+      <div class="stat-card" data-filter="op" onclick="setFilter('op',this)">
+        <div class="stat-label">Operacional</div>
+        <div class="stat-val" id="stat-op">0</div>
+      </div>
+      <div class="stat-card" data-filter="terc" onclick="setFilter('terc',this)">
+        <div class="stat-label">Terceiros</div>
+        <div class="stat-val" id="stat-terc">0</div>
+      </div>
+      <div class="stat-card" data-filter="mob" onclick="setFilter('mob',this)">
+        <div class="stat-label">Mobilização</div>
+        <div class="stat-val" id="stat-mob">0</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-toolbar">
+        <div class="search-wrap">
+          <input type="text" id="busca" placeholder="Buscar por nome, RE, função, setor..." oninput="renderTabela()" />
+        </div>
+        <span class="filter-label" id="filter-label">
+          <span class="filter-dot" style="background:var(--blue)"></span>
+          Todos os registros
+        </span>
+        <div class="toolbar-right">
+          <button class="btn btn-green" onclick="openImport()">Importar Planilha</button>
+          <button class="btn btn-ghost" onclick="baixarModelo()">Baixar Modelo</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead id="thead-row"></thead>
+          <tbody id="tabela-corpo"></tbody>
+        </table>
+        <div class="empty" id="empty-msg">Nenhum registro encontrado.</div>
+      </div>
+    </div>
+
+    <div class="rankings">
+      <div class="rank-card">
+        <div class="rank-head">
+          <div>
+            <div class="rank-title">Ranking de Funções</div>
+            <div class="rank-sub" id="rank-func-sub">-</div>
+          </div>
+          <button class="btn btn-sm" onclick="atualizarRankings()">Atualizar</button>
+        </div>
+        <div class="rank-body" id="rank-funcoes"></div>
+      </div>
+
+      <div class="rank-card">
+        <div class="rank-head">
+          <div>
+            <div class="rank-title">Ranking de Setores</div>
+            <div class="rank-sub" id="rank-setor-sub">-</div>
+          </div>
+        </div>
+        <div class="rank-body" id="rank-setores"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SENHA -->
+  <div class="modal-bg" id="modal-senha">
+    <div class="modal" style="width:340px">
+      <h3>Painel de edição</h3>
+      <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="input-senha" placeholder="Digite a senha" />
+        <div class="pass-err" id="pass-err">Senha incorreta.</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-senha')">Cancelar</button>
+        <button class="btn btn-blue" onclick="verificarSenha()">Entrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL EDIÇÃO -->
+  <div class="modal-bg" id="modal-edicao">
+    <div class="modal">
+      <h3 id="modal-edicao-title">Adicionar registro</h3>
+
+      <div class="edit-tabs" id="edit-tabs-bar">
+        <button class="edit-tab active" id="etab-ef" onclick="setEditTab('ef')">Efetivo / PJ</button>
+        <button class="edit-tab" id="etab-tc" onclick="setEditTab('tc')">Terceiros</button>
+        <button class="edit-tab" id="etab-mb" onclick="setEditTab('mb')">Mobilização</button>
+      </div>
+
+      <div id="form-ef">
+        <div class="form-row">
+          <div class="form-group"><label>RE</label><input type="text" id="ef-re" /></div>
+          <div class="form-group"><label>Nome</label><input type="text" id="ef-nome" /></div>
+          <div class="form-group"><label>Função</label><input type="text" id="ef-funcao" /></div>
+          <div class="form-group"><label>Setor</label><input type="text" id="ef-setor" placeholder="Se vazio, tenta auto pelo campo Função" /></div>
+
+          <div class="form-group"><label>Admissão</label><input type="date" id="ef-admissao" onchange="autoCalcExp()" /></div>
+          <div class="form-group"><label>Exp.30</label><input type="date" id="ef-exp30" disabled /></div>
+          <div class="form-group"><label>Exp.60</label><input type="date" id="ef-exp60" disabled /></div>
+
+          <div class="form-group"><label>Salário Hora</label><input type="text" id="ef-salh" placeholder="Ex: 12,34" /></div>
+          <div class="form-group"><label>Salário Mensal</label><input type="text" id="ef-salm" placeholder="Ex: 3500,20" /></div>
+
+          <div class="form-group full"><label>Venc. ASO</label><input type="date" id="ef-aso" /></div>
+        </div>
+      </div>
+
+      <div id="form-tc" style="display:none">
+        <div class="form-row">
+          <div class="form-group"><label>Nome</label><input type="text" id="tc-nome" /></div>
+          <div class="form-group"><label>Empresa</label><input type="text" id="tc-empresa" /></div>
+          <div class="form-group full"><label>Serviço</label><input type="text" id="tc-servico" /></div>
+        </div>
+      </div>
+
+      <div id="form-mb" style="display:none">
+        <div class="form-row">
+          <div class="form-group"><label>Nome</label><input type="text" id="mb-nome" /></div>
+          <div class="form-group"><label>Tipo</label>
+            <select id="mb-tipo">
+              <option value="Entrada">Entrada</option>
+              <option value="Saída">Saída</option>
+            </select>
+          </div>
+
+          <div class="form-group"><label>Função</label><input type="text" id="mb-funcao" /></div>
+          <div class="form-group"><label>Setor</label><input type="text" id="mb-setor" placeholder="Se vazio, tenta auto pelo campo Função" /></div>
+
+          <div class="form-group"><label>Salário Hora</label><input type="text" id="mb-salh" placeholder="Ex: 12,34" /></div>
+          <div class="form-group"><label>Salário Mensal</label><input type="text" id="mb-salm" placeholder="Ex: 3500,20" /></div>
+        </div>
+      </div>
+
+      <div class="transfer-section" id="transfer-section" style="display:none">
+        <label>Transferir para outra categoria</label>
+        <div class="transfer-btns" id="transfer-btns"></div>
+      </div>
+
+      <div class="feedback" id="add-feedback"></div>
+      <div class="modal-actions">
+        <button class="btn btn-red" onclick="closeModal('modal-edicao')">Fechar</button>
+        <button class="btn btn-blue" id="btn-salvar" onclick="salvarRegistro()">Adicionar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL IMPORTAR -->
+  <div class="modal-bg" id="modal-import">
+    <div class="modal" style="width:760px">
+      <h3>Importar planilha</h3>
+
+      <div class="form-group">
+        <label>Arquivo</label>
+        <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="lerPlanilha(event)" />
+      </div>
+
+      <div id="import-preview"></div>
+      <div class="feedback" id="import-feedback"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-import')">Cancelar</button>
+        <button class="btn btn-green" id="btn-confirmar-import" onclick="confirmarImport()" style="display:none">Importar registros</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIRMAÇÃO (excluir item) -->
+  <div class="modal-bg" id="modal-confirm">
+    <div class="confirm-modal">
+      <h3 style="font-size:14px;font-weight:900;margin-bottom:10px;color:var(--red)">Confirmar exclusão</h3>
+      <p id="confirm-msg"></p>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-confirm')">Cancelar</button>
+        <button class="btn btn-red" onclick="confirmarExclusao()">Excluir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL CONFIRMAÇÃO (apagar tudo) -->
+  <div class="modal-bg" id="modal-wipe">
+    <div class="confirm-modal">
+      <h3 style="font-size:14px;font-weight:900;margin-bottom:10px;color:var(--red)">Apagar todos os registros</h3>
+      <p>Isso remove efetivo, PJ, terceiros e mobilização deste navegador. Esta ação não pode ser desfeita.</p>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal('modal-wipe')">Cancelar</button>
+        <button class="btn btn-red" onclick="wipeAll()">Apagar tudo</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* =============================
+   CONFIG
+============================= */
+const SENHA = "Obcas2026";
+
+/* =============================
+   STATE
+============================= */
+let activeFilter = 'all';
+let editTab = 'ef';
+let editingIndex = null;
+let deleteTarget = null;
+let importBuffer = [];
+let autenticado = false;
+let pendingAction = null;
+
+// Dados locais em memória (renderiza a tela)
+const dados = { efetivo: [], pj: [], terceiros: [], mob: [] };
+
+// Controle para evitar loop (snapshot -> render -> save)
+let __hydratingFromRemote = false;
+let __lastRemoteJson = '';
+
+/* =============================
+   FIRESTORE SYNC
+============================= */
+function fb() {
+  const x = window.__obcasFirebase;
+  if (!x) throw new Error('Firebase não inicializou (script type="module").');
+  return x;
+}
+
+function dbRef() {
+  const { db, doc, WORK_ID } = fb();
+  return doc(db, 'obras', WORK_ID);
+}
+
+function stableJson(obj) {
+  return JSON.stringify(obj, Object.keys(obj).sort());
+}
+
+function getPayloadForRemote() {
+  // NÃO levar writeKey pro UI; só mandamos ao salvar.
+  return {
+    efetivo: dados.efetivo,
+    pj: dados.pj,
+    terceiros: dados.terceiros,
+    mob: dados.mob,
+  };
+}
+
+async function salvarRemoto(reason = 'update') {
+  // Se estamos aplicando snapshot remoto, não regravar.
+  if (__hydratingFromRemote) return;
+
+  const { setDoc, serverTimestamp, WRITE_KEY } = fb();
+  const payload = getPayloadForRemote();
+
+  const jsonNow = JSON.stringify(payload);
+  // Se não mudou vs último remoto, não grava
+  if (jsonNow === __lastRemoteJson) return;
+
+  await setDoc(dbRef(), {
+    ...payload,
+    writeKey: WRITE_KEY,
+    updatedAt: serverTimestamp(),
+    updatedReason: reason
+  }, { merge: true });
+}
+
+function applyRemoteDoc(data) {
+  __hydratingFromRemote = true;
+  try {
+    dados.efetivo = Array.isArray(data.efetivo) ? data.efetivo : [];
+    dados.pj = Array.isArray(data.pj) ? data.pj : [];
+    dados.terceiros = Array.isArray(data.terceiros) ? data.terceiros : [];
+    dados.mob = Array.isArray(data.mob) ? data.mob : [];
+
+    migrateData();
+    renderTabela();
+
+    __lastRemoteJson = JSON.stringify(getPayloadForRemote());
+  } finally {
+    __hydratingFromRemote = false;
+  }
+}
+
+function iniciarSyncRemoto() {
+  const { onSnapshot } = fb();
+  onSnapshot(dbRef(), (snap) => {
+    if (!snap.exists()) {
+      // primeira vez: cria doc vazio (para todos PCs terem base)
+      // não chama salvarRemoto (regras exigem writeKey, mas aqui já tem)
+      salvarRemoto('init').catch(console.error);
+      return;
+    }
+    const data = snap.data() || {};
+    // Evita "piscar" se o remoto estiver igual
+    const remotePayload = {
+      efetivo: data.efetivo || [],
+      pj: data.pj || [],
+      terceiros: data.terceiros || [],
+      mob: data.mob || []
+    };
+    const remoteJson = JSON.stringify(remotePayload);
+    if (remoteJson === __lastRemoteJson) return;
+    __lastRemoteJson = remoteJson;
+    applyRemoteDoc(remotePayload);
+  }, (err) => {
+    console.error('Erro Firestore onSnapshot:', err);
+    // Se rules negarem, você verá "Missing or insufficient permissions"
+  });
+}
+
+/* =============================
+   UTIL
+============================= */
+function hoje() { return new Date().toLocaleDateString('pt-BR'); }
+document.getElementById('date-badge').textContent = hoje();
+
+function fmtDate(d) { if (!d) return '—'; const [y, m, dd] = d.split('-'); return dd + '/' + m + '/' + y; }
+function addDays(isoDate, days) { if (!isoDate) return ''; const dt = new Date(isoDate + 'T00:00:00'); dt.setDate(dt.getDate() + days); return dt.toISOString().slice(0, 10); }
+function exp30FromAdmissao(adm) { return addDays(adm, 29); }
+function exp60FromAdmissao(adm) { return addDays(adm, 59); }
+
+// sem badge; só cor via classe
+function statusExp(d) { return ''; }
+function expDateClass(isoDate) {
+  if (!isoDate) return '';
+  const now = new Date(); now.setHours(0,0,0,0);
+  const dt = new Date(isoDate + 'T00:00:00');
+  const diff = Math.ceil((dt - now) / 86400000);
+  if (diff < 0) return '';       // vencido: normal
+  if (diff < 10) return 'exp-soon';
+  if (diff <= 30) return 'exp-warn';
+  return '';
+}
+
+function ensureId(obj) {
+  if (!obj._id) obj._id = (crypto?.randomUUID?.() || (Date.now().toString(36) + Math.random().toString(36).slice(2)));
+  return obj;
+}
+
+function normKey(s) {
+  return (s || '')
+    .toString()
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')
+    .replace(/\s+/g,' ')
+    .replace(/[^\w\s]/g,'');
+}
+function normRe(s) { return normKey(s).replace(/\s+/g,''); }
+
+function isPJ(re) { return normRe(re).includes('PJ'); }
+function isASOInRe(re) { return normRe(re).includes('ASO'); }
+function isAguardaExame(situacao) { return normKey(situacao).includes('AGUARDA EXAME'); }
+
+/* dinheiro */
+function parseMoneyToNumber(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return v;
+  let cleaned = v.toString().trim().replace(/\s+/g,'');
+  if (cleaned.includes(',') && cleaned.match(/\d+\.\d{3},\d+/)) cleaned = cleaned.replace(/\./g,'').replace(',', '.');
+  else if (cleaned.includes(',') && !cleaned.includes('.')) cleaned = cleaned.replace(',', '.');
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+function fmtMoney(v) {
+  const n = parseMoneyToNumber(v);
+  if (n === null) return '';
+  return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/* =============================
+   SETOR (AUTO)
+============================= */
+function normalizeFuncAliases(k) {
+  return k
+    .replace(/\bENC\.\b/g, 'ENCARREGADO')
+    .replace(/\bENC\b/g, 'ENCARREGADO')
+    .replace(/\bCOORD\.\b/g, 'COORDENADOR')
+    .replace(/\bCOORD\b/g, 'COORDENADOR')
+    .replace(/\bSEG TRABALHO\b/g, 'SEGURANCA DO TRABALHO')
+    .replace(/\bSEGTRABALHO\b/g, 'SEGURANCA DO TRABALHO')
+    .replace(/\bSESS[ÃA]O\b/g, 'SESSAO')
+    .replace(/\bPRODUC[ÃA]O\b/g, 'PRODUCAO')
+    .replace(/\bMORISTA\b/g, 'MOTORISTA')
+    .replace(/\bMUNK\b/g, 'MUNCK')
+    .replace(/\bELETRECISTA\b/g, 'ELETRICISTA')
+    .replace(/\bVIDRADORISTA\b/g, 'VIBRADORISTA');
+}
+
+const ADM_KEYS = [
+  'ADMIN','ADM','FINANCEIRO','CONTABIL','COMPRAS','LOGISTICA','RH',
+  'SEGURANCA DO TRABALHO','ENFERMAGEM DO TRABALHO',
+  'SUPERVISOR ADMINISTRATIVO','ASSISTENTE ADMINISTRATIVO','AUXILIAR ADMINISTRATIVO',
+  'SUPERVISOR DE OBRAS CIVIS','ENCARREGADO ADMINISTRATIVO','ENCARREGADO ADM DE OBRAS',
+  'COORDENADOR DE SEGURANCA DO TRABALHO','COORDENADOR DE RH','ENGENHEIRO DE SEGURANCA DO TRABALHO',
+  'ENGENHEIRO CIVIL','ENCARREGADO GERAL DE OBRAS',
+  'COORD DE SEG TRABALHO'
+].map(normKey);
+
+const OP_KEYS = [
+  'ENCARREGADO DE PRODUCAO',
+  'ENCARREGADO DE SERV GERAIS',
+  'ENCARREGADO DE SERVICOS GERAIS',
+  'ENCARREGADO DE SESSAO TECNICA',
+  'AUXILIAR DE TOPOGRAFIA',
+  'TECNICO EM ENFERMAGEM',
+  'MOTORISTA DE AMBULANCIA',
+
+  'OPERACIONAL',
+  'AJUDANTE GERAL',
+  'ALMOXARIFE',
+  'ARMADOR',
+  'AUXILIAR DE LABORATORIO',
+  'BOMBEIRO HIDRAULICO',
+  'CARPINTEIRO',
+  'CONTROLADOR DE MANUTENCAO',
+  'LABORATORISTA',
+  'LUBRIFICADOR',
+  'MARTELETEIRO',
+  'NIVELADOR',
+  'SINALEIRO',
+  'VIBRADORISTA',
+  'ZELADORA',
+  'ZELADOR',
+  'OPERADOR','MOTORISTA','PEDREIRO','SERVENTE','SOLDADOR',
+  'ELETRICISTA','TOPOGRAFO','MECANICO','TRATOR','ROLO','GUINDASTE','BOMBA LANCA',
+  'PA CARREGADEIRA','CENTRAL DE CONCRETO','ALMOXARIFE','APONTADOR',
+  'ENCARREGADO DE ACABAMENTO','LIDER'
+].map(normKey);
+
+function setorFromFuncao(funcao) {
+  let k = normKey(funcao);
+  if (!k) return '';
+  k = normalizeFuncAliases(k);
+
+  if (k.includes('SEGURANCA DO TRABALHO')) return 'ADM';
+  if (k.includes('COORD') && k.includes('SEG')) return 'ADM';
+
+  if (k.includes('ADMIN') || k === 'ADM') return 'ADM';
+  if (ADM_KEYS.some(x => k.includes(x))) return 'ADM';
+
+  if (k.startsWith('MARTELETEIRO')) return 'Operacional';
+  if (OP_KEYS.some(x => k.includes(x))) return 'Operacional';
+  if (k.includes('ENCARREGADO')) return 'Operacional';
+
+  return '';
+}
+
+/* =============================
+   ANTI DUPLICAÇÃO
+============================= */
+function keyNomeAdm(nome, adm) { return normKey(nome) + '|' + (adm || ''); }
+function existsEfOrPj(arr, rec) {
+  const reKey = normRe(rec.re);
+  const naKey = keyNomeAdm(rec.nome, rec.admissao);
+  return arr.some(x => {
+    const xRe = normRe(x.re);
+    const xNA = keyNomeAdm(x.nome, x.admissao);
+    return (reKey && xRe && xRe === reKey) || (naKey && xNA === naKey);
+  });
+}
+function existsTerceiro(nome, empresa) {
+  const k = normKey(nome) + '|' + normKey(empresa);
+  return dados.terceiros.some(x => (normKey(x.nome) + '|' + normKey(x.empresa)) === k);
+}
+function existsMob(nome, movTipo) {
+  const k = normKey(nome) + '|' + normKey(movTipo);
+  return dados.mob.some(x => (normKey(x.nome) + '|' + normKey(x.movTipo)) === k);
+}
+
+/* =============================
+   MIGRATE (garante campos)
+============================= */
+function migrateData() {
+  const fixEf = r => {
+    ensureId(r);
+    r.re ??= ''; r.nome ??= ''; r.funcao ??= ''; r.setor ??= '';
+    r.admissao ??= ''; r.exp30 ??= ''; r.exp60 ??= ''; r.aso ??= '';
+    r.salh ??= ''; r.salm ??= '';
+    if (r.salh !== '') r.salh = fmtMoney(r.salh);
+    if (r.salm !== '') r.salm = fmtMoney(r.salm);
+    if (r.admissao && !r.exp30) r.exp30 = exp30FromAdmissao(r.admissao);
+    if (r.admissao && !r.exp60) r.exp60 = exp60FromAdmissao(r.admissao);
+    return r;
+  };
+  dados.efetivo = (dados.efetivo || []).map(fixEf);
+  dados.pj = (dados.pj || []).map(fixEf);
+  dados.terceiros = (dados.terceiros || []).map(r => { ensureId(r); r.empresa ??= ''; r.servico ??= ''; return r; });
+  dados.mob = (dados.mob || []).map(r => {
+    ensureId(r);
+    r.nome ??= ''; r.movTipo ??= 'Entrada';
+    r.funcao ??= ''; r.setor ??= ''; r.salh ??= ''; r.salm ??= '';
+    if (r.salh !== '') r.salh = fmtMoney(r.salh);
+    if (r.salm !== '') r.salm = fmtMoney(r.salm);
+    return r;
+  });
+}
+
+/* =============================
+   FILTERS
+============================= */
+const FILTER_META = {
+  all:  { label: 'Todos os registros', color: 'var(--blue)' },
+  ef:   { label: 'Efetivos',           color: 'var(--teal)' },
+  pj:   { label: 'PJ',                 color: '#0ea5e9' },
+  adm:  { label: 'ADM',                color: 'var(--purple)' },
+  op:   { label: 'Operacional',        color: 'var(--green)' },
+  terc: { label: 'Terceiros',          color: 'var(--orange)' },
+  mob:  { label: 'Mobilização',        color: 'var(--pink)' },
+};
+
+function setFilter(f, el) {
+  activeFilter = f;
+  document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const meta = FILTER_META[f];
+  document.getElementById('filter-label').innerHTML =
+    `<span class="filter-dot" style="background:${meta.color}"></span>${meta.label}`;
+  renderTabela();
+}
+
+function getRows() {
+  const q = document.getElementById('busca').value.trim().toLowerCase();
+  const m = r => !q
+    || (r.nome || '').toLowerCase().includes(q)
+    || (r.re || '').toLowerCase().includes(q)
+    || (r.funcao || '').toLowerCase().includes(q)
+    || (r.servico || '').toLowerCase().includes(q)
+    || (r.empresa || '').toLowerCase().includes(q)
+    || (r.setor || '').toLowerCase().includes(q);
+
+  const isAdm = r => (r.setor || '').trim().toLowerCase() === 'adm';
+  const isOp  = r => (r.setor || '').trim().toLowerCase() === 'operacional';
+
+  let rows;
+  switch (activeFilter) {
+    case 'ef':   rows = dados.efetivo.filter(m).map(r => ({...r, _t:'efetivo'})); break;
+    case 'pj':   rows = dados.pj.filter(m).map(r => ({...r, _t:'pj'})); break;
+    case 'adm':  rows = dados.efetivo.filter(isAdm).filter(m).map(r => ({...r, _t:'efetivo'})); break;
+    case 'op':   rows = dados.efetivo.filter(isOp).filter(m).map(r => ({...r, _t:'efetivo'})); break;
+    case 'terc': rows = dados.terceiros.filter(m).map(r => ({...r, _t:'terceiro'})); break;
+    case 'mob':  rows = dados.mob.filter(m).map(r => ({...r, _t:'mob'})); break;
+    default:
+      rows = [
+        ...dados.efetivo.filter(m).map(r => ({...r, _t:'efetivo'})),
+        ...dados.pj.filter(m).map(r => ({...r, _t:'pj'})),
+        ...dados.terceiros.filter(m).map(r => ({...r, _t:'terceiro'})),
+        ...dados.mob.filter(m).map(r => ({...r, _t:'mob'}))
+      ];
+  }
+
+  rows.sort((a,b) => (a.nome || '').localeCompare((b.nome || ''), 'pt-BR', { sensitivity: 'base' }));
+  return rows;
+}
+
+/* =============================
+   TABLE RENDER
+============================= */
+const COLS = [
+  { label:'RE', cls:'col-re mono' },
+  { label:'Nome', cls:'col-nome name-col' },
+  { label:'Tipo', cls:'col-tipo' },
+  { label:'Função / Serviço', cls:'col-func' },
+  { label:'Setor', cls:'col-setor' },
+  { label:'Admissão', cls:'col-adm mono' },
+  { label:'Exp.30', cls:'col-exp mono' },
+  { label:'Exp.60', cls:'col-exp mono' },
+  { label:'Venc. ASO', cls:'col-aso mono' },
+  { label:'Salário Hora', cls:'col-salh mono' },
+  { label:'Salário Mensal', cls:'col-salm mono' },
+  { label:'Ações', cls:'col-acoes' },
+];
+
+function actIcons(tipo, id) {
+  return `<div class="actions-col">
+    <button class="icon-btn edit" title="Editar" onclick="abrirEditarPorId('${tipo}','${id}')">✎</button>
+    <button class="icon-btn del" title="Excluir" onclick="abrirExcluirPorId('${tipo}','${id}')">🗑</button>
+  </div>`;
+}
+
+function renderTabela() {
+  const rows  = getRows();
+  const tbody = document.getElementById('tabela-corpo');
+  const thead = document.getElementById('thead-row');
+  const empty = document.getElementById('empty-msg');
+
+  thead.innerHTML = '<tr>' + COLS.map(c => `<th class="${c.cls}">${c.label}</th>`).join('') + '</tr>';
+
+  if (!rows.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    atualizarStats();
+    atualizarRankings();
+    return;
+  }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = rows.map(r => {
+    const a = actIcons(r._t, r._id);
+
+    let re='—', nome='—', tipo='—', funcao='—', setor='—', adm='—', exp30='—', exp60='—', aso='—', salh='—', salm='—';
+    let exp30Cls='', exp60Cls='', asoCls='';
+
+    if (r._t === 'efetivo' || r._t === 'pj') {
+      re = r.re || '—';
+      nome = r.nome || '—';
+      tipo = (r._t === 'pj') ? 'PJ' : 'Efetivo';
+      funcao = r.funcao || '—';
+      setor = r.setor || '—';
+      adm = fmtDate(r.admissao);
+
+      exp30 = fmtDate(r.exp30);
+      exp60 = fmtDate(r.exp60);
+      aso   = fmtDate(r.aso);
+
+      exp30Cls = expDateClass(r.exp30);
+      exp60Cls = expDateClass(r.exp60);
+      asoCls   = expDateClass(r.aso);
+
+      salh = (r.salh || '').toString().trim() || '—';
+      salm = (r.salm || '').toString().trim() || '—';
+    } else if (r._t === 'terceiro') {
+      nome = r.nome || '—';
+      tipo = `<span class="badge badge-terc">${r.empresa ? r.empresa : 'Terceiro'}</span>`;
+      funcao = r.servico || '—';
+    } else {
+      nome = r.nome || '—';
+      tipo = (r.movTipo === 'Entrada')
+        ? `<span class="badge badge-mob-e">Entrada</span>`
+        : `<span class="badge badge-mob-s">Saída</span>`;
+      funcao = r.funcao || '—';
+      setor = r.setor || '—';
+      salh = (r.salh || '').toString().trim() || '—';
+      salm = (r.salm || '').toString().trim() || '—';
+    }
+
+    return `<tr>
+      <td class="col-re mono" title="${re}">${re}</td>
+      <td class="col-nome name-col" title="${nome}">${nome}</td>
+      <td class="col-tipo">${tipo}</td>
+      <td class="col-func" title="${funcao}">${funcao}</td>
+      <td class="col-setor" title="${setor}">${setor}</td>
+      <td class="col-adm mono">${adm}</td>
+      <td class="col-exp mono ${exp30Cls}">${exp30}</td>
+      <td class="col-exp mono ${exp60Cls}">${exp60}</td>
+      <td class="col-aso mono ${asoCls}">${aso}</td>
+      <td class="col-salh mono">${salh}</td>
+      <td class="col-salm mono">${salm}</td>
+      <td class="col-acoes">${a}</td>
+    </tr>`;
+  }).join('');
+
+  atualizarStats();
+  atualizarRankings();
+}
+
+/* =============================
+   STATS
+============================= */
+function atualizarStats() {
+  document.getElementById('stat-total').textContent = dados.efetivo.length + dados.pj.length + dados.terceiros.length + dados.mob.length;
+  document.getElementById('stat-ef').textContent    = dados.efetivo.length;
+  document.getElementById('stat-pj').textContent    = dados.pj.length;
+  document.getElementById('stat-adm').textContent   = dados.efetivo.filter(r => (r.setor || '').trim().toLowerCase() === 'adm').length;
+  document.getElementById('stat-op').textContent    = dados.efetivo.filter(r => (r.setor || '').trim().toLowerCase() === 'operacional').length;
+  document.getElementById('stat-terc').textContent  = dados.terceiros.length;
+  document.getElementById('stat-mob').textContent   = dados.mob.length;
+}
+
+/* =============================
+   RANKINGS
+============================= */
+function buildTopCounts(items, keyFn, topN = 12, emptyLabel = 'Não informado') {
+  const counts = new Map();
+  for (const it of items) {
+    const key = (keyFn(it) || '').toString().trim();
+    const label = key ? key : emptyLabel;
+    counts.set(label, (counts.get(label) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a,b) => b[1] - a[1]).slice(0, topN);
+}
+
+function renderRanking(elId, rows) {
+  const el = document.getElementById(elId);
+  el.innerHTML = rows.map(([name, val], i) => `
+    <div class="rank-row">
+      <div class="rank-pos">#${String(i+1).padStart(2,'0')}</div>
+      <div class="rank-name" title="${name}">${name}</div>
+      <div class="rank-val">${val}</div>
+    </div>
+  `).join('');
+}
+
+function atualizarRankings() {
+  const ef = dados.efetivo || [];
+  document.getElementById('rank-func-sub').textContent = ef.length ? `Base: ${ef.length} efetivo(s)` : 'Sem dados';
+  document.getElementById('rank-setor-sub').textContent = ef.length ? `Base: ${ef.length} efetivo(s)` : 'Sem dados';
+
+  const topFun = buildTopCounts(ef, r => r.funcao, 12, 'Função não informada');
+  const topSet = buildTopCounts(ef, r => r.setor, 12, 'Setor não informado');
+  renderRanking('rank-funcoes', topFun);
+  renderRanking('rank-setores', topSet);
+}
+
+/* =============================
+   AUTH / MODALS
+============================= */
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function requireAuth(fn) {
+  if (autenticado) { fn(); return; }
+  pendingAction = fn;
+  document.getElementById('input-senha').value = '';
+  document.getElementById('pass-err').style.display = 'none';
+  document.getElementById('modal-senha').classList.add('open');
+}
+function verificarSenha() {
+  if (document.getElementById('input-senha').value === SENHA) {
+    autenticado = true;
+    closeModal('modal-senha');
+    if (pendingAction) { pendingAction(); pendingAction = null; }
+  } else document.getElementById('pass-err').style.display = 'block';
+}
+document.getElementById('input-senha').addEventListener('keydown', e => { if (e.key === 'Enter') verificarSenha(); });
+
+/* =============================
+   APAGAR TUDO
+============================= */
+function openWipeAll(){ requireAuth(() => document.getElementById('modal-wipe').classList.add('open')); }
+function wipeAll(){
+  dados.efetivo = [];
+  dados.pj = [];
+  dados.terceiros = [];
+  dados.mob = [];
+  closeModal('modal-wipe');
+  renderTabela();
+  salvarRemoto('wipeAll').catch(console.error);
+}
+
+/* =============================
+   EDIT PANEL
+============================= */
+function openEditPanel() {
+  requireAuth(() => {
+    editingIndex = null;
+    document.getElementById('modal-edicao-title').textContent = 'Adicionar registro';
+    document.getElementById('btn-salvar').textContent = 'Adicionar';
+    document.getElementById('edit-tabs-bar').style.display = 'flex';
+    document.getElementById('transfer-section').style.display = 'none';
+    setEditTab('ef'); limparForms();
+    document.getElementById('modal-edicao').classList.add('open');
+  });
+}
+
+function setEditTab(t) {
+  editTab = t;
+  ['ef','tc','mb'].forEach(x => {
+    document.getElementById('form-' + x).style.display = x === t ? 'block' : 'none';
+    document.getElementById('etab-' + x).classList.toggle('active', x === t);
+  });
+}
+
+function limparForms() {
+  ['ef-re','ef-nome','ef-funcao','ef-setor','ef-admissao','ef-exp30','ef-exp60','ef-aso','ef-salh','ef-salm',
+   'tc-nome','tc-servico','tc-empresa',
+   'mb-nome','mb-funcao','mb-setor','mb-salh','mb-salm'
+  ].forEach(id => { const el = document.getElementById(id); if (el) el.value=''; });
+  document.getElementById('mb-tipo').value = 'Entrada';
+  document.getElementById('add-feedback').textContent = '';
+}
+
+function autoCalcExp() {
+  const adm = document.getElementById('ef-admissao').value;
+  document.getElementById('ef-exp30').value = exp30FromAdmissao(adm);
+  document.getElementById('ef-exp60').value = exp60FromAdmissao(adm);
+}
+
+/* =============================
+   EDIT/DELETE BY ID + TRANSFER
+============================= */
+function findById(tipo, id) {
+  const arr = (tipo==='efetivo') ? dados.efetivo :
+              (tipo==='pj') ? dados.pj :
+              (tipo==='terceiro') ? dados.terceiros :
+              dados.mob;
+  const idx = arr.findIndex(x => x._id === id);
+  return { arr, idx };
+}
+
+function abrirEditarPorId(tipo, id) {
+  requireAuth(() => {
+    const { arr, idx } = findById(tipo, id);
+    if (idx < 0) return;
+
+    editingIndex = { tipo, id };
+    document.getElementById('modal-edicao-title').textContent = 'Editar registro';
+    document.getElementById('btn-salvar').textContent = 'Salvar alterações';
+    document.getElementById('edit-tabs-bar').style.display = 'none';
+    limparForms();
+
+    const r = arr[idx];
+
+    if (tipo==='efetivo' || tipo==='pj') {
+      setEditTab('ef');
+      document.getElementById('ef-re').value = r.re || '';
+      document.getElementById('ef-nome').value = r.nome || '';
+      document.getElementById('ef-funcao').value = r.funcao || '';
+      document.getElementById('ef-setor').value = r.setor || '';
+      document.getElementById('ef-admissao').value = r.admissao || '';
+      document.getElementById('ef-exp30').value = r.exp30 || exp30FromAdmissao(r.admissao || '');
+      document.getElementById('ef-exp60').value = r.exp60 || exp60FromAdmissao(r.admissao || '');
+      document.getElementById('ef-aso').value = r.aso || '';
+      document.getElementById('ef-salh').value = r.salh || '';
+      document.getElementById('ef-salm').value = r.salm || '';
+    } else if (tipo==='terceiro') {
+      setEditTab('tc');
+      document.getElementById('tc-nome').value = r.nome || '';
+      document.getElementById('tc-empresa').value = r.empresa || '';
+      document.getElementById('tc-servico').value = r.servico || '';
+    } else {
+      setEditTab('mb');
+      document.getElementById('mb-nome').value = r.nome || '';
+      document.getElementById('mb-tipo').value = r.movTipo || 'Entrada';
+      document.getElementById('mb-funcao').value = r.funcao || '';
+      document.getElementById('mb-setor').value = r.setor || '';
+      document.getElementById('mb-salh').value = r.salh || '';
+      document.getElementById('mb-salm').value = r.salm || '';
+    }
+
+    const ts = document.getElementById('transfer-section');
+    const tb = document.getElementById('transfer-btns');
+    ts.style.display = 'block';
+    tb.innerHTML = '';
+
+    const opts = [
+      { key:'efetivo', label:'Efetivo', cls:'btn-blue' },
+      { key:'mob',     label:'Mobilização', cls:'btn-ghost' },
+      { key:'pj',      label:'PJ', cls:'btn-ghost' },
+      { key:'terceiro',label:'Terceiros', cls:'btn-ghost' },
+    ].filter(o => o.key !== tipo);
+
+    opts.forEach(o => {
+      const b = document.createElement('button');
+      b.className = 'btn ' + o.cls + ' btn-sm';
+      b.textContent = 'Transferir para ' + o.label;
+      b.onclick = () => transferirRegistroPorId(tipo, id, o.key);
+      tb.appendChild(b);
+    });
+
+    document.getElementById('modal-edicao').classList.add('open');
+  });
+}
+
+function transferirRegistroPorId(deTipo, deId, paraTipo) {
+  const from = findById(deTipo, deId);
+  if (from.idx < 0) return;
+  const registro = from.arr.splice(from.idx, 1)[0];
+  ensureId(registro);
+
+  if (paraTipo === 'mob') {
+    const mbRec = ensureId({
+      nome: registro.nome || '',
+      movTipo: 'Entrada',
+      funcao: registro.funcao || '',
+      setor: registro.setor || '',
+      salh: registro.salh || '',
+      salm: registro.salm || ''
+    });
+    if (!existsMob(mbRec.nome, mbRec.movTipo)) dados.mob.push(mbRec);
+
+  } else if (paraTipo === 'efetivo' || paraTipo === 'pj') {
+    const efRec = ensureId({
+      re: registro.re || '',
+      nome: registro.nome || '',
+      funcao: registro.funcao || '',
+      setor: registro.setor || '',
+      admissao: registro.admissao || '',
+      exp30: registro.admissao ? exp30FromAdmissao(registro.admissao) : '',
+      exp60: registro.admissao ? exp60FromAdmissao(registro.admissao) : '',
+      aso: registro.aso || '',
+      salh: registro.salh || '',
+      salm: registro.salm || ''
+    });
+    const destArr = (paraTipo === 'pj') ? dados.pj : dados.efetivo;
+    if (!existsEfOrPj(destArr, efRec)) destArr.push(efRec);
+
+  } else if (paraTipo === 'terceiro') {
+    const tcRec = ensureId({
+      nome: registro.nome || '',
+      empresa: registro.empresa || '',
+      servico: registro.servico || registro.funcao || ''
+    });
+    if (!existsTerceiro(tcRec.nome, tcRec.empresa)) dados.terceiros.push(tcRec);
+  }
+
+  renderTabela();
+  closeModal('modal-edicao');
+  salvarRemoto('transfer').catch(console.error);
+}
+
+function abrirExcluirPorId(tipo, id) {
+  requireAuth(() => {
+    deleteTarget = { tipo, id };
+    const { arr, idx } = findById(tipo, id);
+    if (idx < 0) return;
+    const nome = arr[idx].nome || '(sem nome)';
+    document.getElementById('confirm-msg').textContent = `Excluir "${nome}"? Esta ação não pode ser desfeita.`;
+    document.getElementById('modal-confirm').classList.add('open');
+  });
+}
+
+function confirmarExclusao() {
+  if (!deleteTarget) return;
+  const { tipo, id } = deleteTarget;
+  const { arr, idx } = findById(tipo, id);
+  if (idx >= 0) arr.splice(idx, 1);
+  renderTabela();
+  closeModal('modal-confirm');
+  deleteTarget = null;
+  salvarRemoto('delete').catch(console.error);
+}
+
+/* =============================
+   SAVE
+============================= */
+function salvarRegistro() {
+  const fbk = document.getElementById('add-feedback');
+
+  if (editTab === 'ef') {
+    const n = document.getElementById('ef-nome').value.trim();
+    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; return; }
+
+    const adm = document.getElementById('ef-admissao').value;
+    const re  = document.getElementById('ef-re').value.trim();
+
+    const salh = fmtMoney(document.getElementById('ef-salh').value);
+    const salm = fmtMoney(document.getElementById('ef-salm').value);
+
+    const funcao = document.getElementById('ef-funcao').value.trim();
+    const setorManual = document.getElementById('ef-setor').value.trim();
+    const setor = setorManual || setorFromFuncao(funcao);
+
+    const obj = ensureId({
+      _id: (editingIndex && (editingIndex.tipo === 'efetivo' || editingIndex.tipo === 'pj')) ? editingIndex.id : undefined,
+      re,
+      nome: n,
+      funcao,
+      setor,
+      admissao: adm,
+      exp30: exp30FromAdmissao(adm),
+      exp60: exp60FromAdmissao(adm),
+      salh,
+      salm,
+      aso: document.getElementById('ef-aso').value
+    });
+
+    const destTipo = isPJ(re) ? 'pj' : 'efetivo';
+
+    if (!editingIndex) {
+      const destArr = (destTipo === 'pj') ? dados.pj : dados.efetivo;
+      if (existsEfOrPj(destArr, obj)) {
+        fbk.style.color = 'var(--red)';
+        fbk.textContent = 'Já existe um cadastro com este RE ou com o mesmo Nome + Admissão.';
+        return;
+      }
+    }
+
+    if (editingIndex && (editingIndex.tipo === 'efetivo' || editingIndex.tipo === 'pj')) {
+      const { arr, idx } = findById(editingIndex.tipo, editingIndex.id);
+      if (idx >= 0) arr[idx] = obj;
+
+      if (editingIndex.tipo !== destTipo) {
+        arr.splice(idx, 1);
+        if (destTipo === 'pj') dados.pj.push(obj);
+        else dados.efetivo.push(obj);
+      }
+    } else {
+      if (destTipo === 'pj') dados.pj.push(obj);
+      else dados.efetivo.push(obj);
+    }
+
+  } else if (editTab === 'tc') {
+    const n = document.getElementById('tc-nome').value.trim();
+    const emp = document.getElementById('tc-empresa').value.trim();
+    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; return; }
+    if (!emp) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe a empresa.'; return; }
+
+    const obj = ensureId({
+      _id: (editingIndex && editingIndex.tipo === 'terceiro') ? editingIndex.id : undefined,
+      nome: n,
+      empresa: emp,
+      servico: document.getElementById('tc-servico').value.trim()
+    });
+
+    if (!editingIndex && existsTerceiro(obj.nome, obj.empresa)) {
+      fbk.style.color = 'var(--red)';
+      fbk.textContent = 'Este terceirizado já está cadastrado (Nome + Empresa).';
+      return;
+    }
+
+    if (editingIndex && editingIndex.tipo === 'terceiro') {
+      const { arr, idx } = findById('terceiro', editingIndex.id);
+      if (idx >= 0) arr[idx] = obj;
+    } else dados.terceiros.push(obj);
+
+  } else {
+    const n = document.getElementById('mb-nome').value.trim();
+    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; return; }
+
+    const salh = fmtMoney(document.getElementById('mb-salh').value);
+    const salm = fmtMoney(document.getElementById('mb-salm').value);
+
+    const funcao = document.getElementById('mb-funcao').value.trim();
+    const setorManual = document.getElementById('mb-setor').value.trim();
+    const setor = setorManual || setorFromFuncao(funcao);
+
+    const obj = ensureId({
+      _id: (editingIndex && editingIndex.tipo === 'mob') ? editingIndex.id : undefined,
+      nome: n,
+      movTipo: document.getElementById('mb-tipo').value,
+      funcao,
+      setor,
+      salh,
+      salm
+    });
+
+    if (!editingIndex && existsMob(obj.nome, obj.movTipo)) {
+      fbk.style.color = 'var(--red)';
+      fbk.textContent = 'Este registro de mobilização já existe (mesmo nome + tipo).';
+      return;
+    }
+
+    if (editingIndex && editingIndex.tipo === 'mob') {
+      const { arr, idx } = findById('mob', editingIndex.id);
+      if (idx >= 0) arr[idx] = obj;
+    } else dados.mob.push(obj);
+  }
+
+  renderTabela();
+
+  fbk.style.color = 'var(--green)';
+  fbk.textContent = editingIndex ? 'Salvo com sucesso!' : 'Adicionado com sucesso!';
+  const wasEditing = !!editingIndex;
+  editingIndex = null;
+
+  salvarRemoto('save').catch(console.error);
+
+  if (wasEditing) setTimeout(() => closeModal('modal-edicao'), 900);
+  else limparForms();
+}
+
+/* =============================
+   IMPORT
+============================= */
+function openImport() {
+  requireAuth(() => {
+    importBuffer = [];
+    document.getElementById('import-preview').innerHTML = '';
+    document.getElementById('import-feedback').textContent = '';
+    document.getElementById('btn-confirmar-import').style.display = 'none';
+    document.getElementById('file-input').value = '';
+    document.getElementById('modal-import').classList.add('open');
+  });
+}
+
+function lerPlanilha(e) { if (e.target.files[0]) processarArquivo(e.target.files[0]); }
+
+function normCol(s){
+  return (s||'').toString().trim().toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[.\s\-\/]/g,'');
+}
+function parseData(v){
+  if (!v) return '';
+  if (typeof v === 'number') {
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    return d.toISOString().split('T')[0];
+  }
+  const s = v.toString().trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m){ const y = m[3].length===2 ? '20'+m[3] : m[3]; return y+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'); }
+  return '';
+}
+function findHeaderRow(rows){
+  const max = Math.min(rows.length, 25);
+  for (let i=0;i<max;i++){
+    const n = rows[i].map(normCol);
+    if (n.includes('RE') && n.includes('NOME')) return i;
+  }
+  return 0;
+}
+
+function processarArquivo(file){
+  const fbk = document.getElementById('import-feedback');
+  fbk.textContent = 'Lendo arquivo...'; fbk.style.color = 'var(--blue)';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (rows.length < 2){ fbk.style.color='var(--red)'; fbk.textContent='Planilha vazia.'; return; }
+
+      const headerRowIdx = findHeaderRow(rows);
+      const header = rows[headerRowIdx];
+      const hRow = header.map(normCol);
+
+      const idxRE   = hRow.indexOf('RE');
+      const idxNOME = hRow.indexOf('NOME');
+      const idxADM  = hRow.indexOf('DATADEADMISSAO');
+      const idxFUN  = hRow.indexOf('FUNCAO');
+      const idxSALH = hRow.indexOf('SALARIOHORA');
+      const idxSALM = hRow.indexOf('SALARIOMENSAL');
+      const idxSIT  = hRow.indexOf('SITUACAO');
+
+      if (idxRE < 0 || idxNOME < 0){ fbk.style.color='var(--red)'; fbk.textContent='Não encontrei colunas RE e NOME.'; return; }
+
+      importBuffer = [];
+      let movedToMob = 0;
+
+      rows.slice(headerRowIdx+1).forEach(row => {
+        const nome = (row[idxNOME]||'').toString().trim();
+        if (!nome) return;
+
+        const re = (row[idxRE]||'').toString().trim();
+        const adm = (idxADM>=0) ? parseData(row[idxADM]) : '';
+        const funcao = (idxFUN>=0) ? (row[idxFUN]||'').toString().trim() : '';
+        const salh = (idxSALH>=0) ? fmtMoney(row[idxSALH]) : '';
+        const salm = (idxSALM>=0) ? fmtMoney(row[idxSALM]) : '';
+        const situacao = (idxSIT>=0) ? (row[idxSIT]||'').toString().trim() : '';
+
+        if (isASOInRe(re) || isAguardaExame(situacao)) {
+          const mobRec = ensureId({ nome, movTipo:'Entrada', funcao, setor:setorFromFuncao(funcao), salh, salm });
+          if (!existsMob(mobRec.nome, mobRec.movTipo)) dados.mob.push(mobRec);
+          movedToMob++;
+          return;
+        }
+
+        const rec = ensureId({
+          re, nome, funcao,
+          setor: setorFromFuncao(funcao),
+          admissao: adm,
+          exp30: exp30FromAdmissao(adm),
+          exp60: exp60FromAdmissao(adm),
+          aso: '',
+          salh, salm
+        });
+
+        if (isPJ(re)) {
+          if (!existsEfOrPj(dados.pj, rec)) importBuffer.push({ ...rec, _dest:'pj' });
+        } else {
+          if (!existsEfOrPj(dados.efetivo, rec)) importBuffer.push({ ...rec, _dest:'ef' });
+        }
+      });
+
+      if (!importBuffer.length && !movedToMob){
+        fbk.style.color='var(--red)';
+        fbk.textContent='Nenhum novo registro.';
+        return;
+      }
+
+      document.getElementById('import-preview').innerHTML = `
+        <div style="margin-top:10px;font-size:12px;color:var(--text2);font-weight:800">
+          Novos para importar: <strong>${importBuffer.length}</strong> | Enviados para mobilização: <strong>${movedToMob}</strong>
+        </div>
+      `;
+
+      fbk.style.color='var(--green)';
+      fbk.textContent='';
+      document.getElementById('btn-confirmar-import').style.display = importBuffer.length ? 'inline-flex' : 'none';
+
+      renderTabela();
+      salvarRemoto('import-parse').catch(console.error);
+    } catch(err){
+      fbk.style.color='var(--red)';
+      fbk.textContent='Erro ao ler: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function confirmarImport(){
+  if (!importBuffer.length) return;
+  importBuffer.forEach(r => {
+    const dest = r._dest; delete r._dest;
+    if (dest==='pj') dados.pj.push(r);
+    else dados.efetivo.push(r);
+  });
+  importBuffer = [];
+  renderTabela();
+  closeModal('modal-import');
+  salvarRemoto('import-confirm').catch(console.error);
+}
+
+/* =============================
+   MODELO
+============================= */
+function baixarModelo(){
+  const wb = XLSX.utils.book_new();
+  const data = [
+    ['RE','NOME','DATA DE ADMISSÃO','FUNÇÃO','SALARIO HORA','SALARIO MENSAL','SITUACAO'],
+    ['4784','ADALTON DE OLIVEIRA','2026-02-14','AJUDANTE GERAL', 12.34, 2500, 'ATIVO'],
+    ['PJ-8899','JOAO DA SILVA','2026-03-01','SUPERVISOR ADMINISTRATIVO', 30, 6000, 'ATIVO'],
+    ['ASO-0001','MARIA TESTE','2026-03-01','MARTELETEIRO II', '', '', 'AGUARDA EXAME']
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, 'Efetivo');
+  XLSX.writeFile(wb, 'modelo_importacao_obcas.xlsx');
+}
+
+/* =============================
+   INIT
+============================= */
+renderTabela();
+iniciarSyncRemoto();
+</script>
+</body>
+</html>
