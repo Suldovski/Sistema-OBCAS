@@ -8,6 +8,38 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
+  <!-- Firebase (Firestore) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import {
+      getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyC_4T-ZoPhOtrR0-6M6poXwhTo0N0Wr6ro",
+      authDomain: "bucagrans-obcas.firebaseapp.com",
+      projectId: "bucagrans-obcas",
+      storageBucket: "bucagrans-obcas.firebasestorage.app",
+      messagingSenderId: "404625263745",
+      appId: "1:404625263745:web:f6d7717f54f94d85df5180",
+      measurementId: "G-30D1H0BHVN"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Identificador da base compartilhada (todos PCs usam o mesmo)
+    const WORK_ID = "obcas";
+
+    // "Senha da obra" usada SOMENTE para permitir escrita no Firestore (Rules)
+    const WRITE_KEY = "Obcas2026";
+
+    window.__obcasFirebase = {
+      db, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
+      WORK_ID, WRITE_KEY
+    };
+  </script>
+
   <style>
     :root{
       --bg:#f6f8fa; --surface:#fff; --surface2:#f3f4f6;
@@ -22,7 +54,6 @@
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
 
-    /* ===== FULL WIDTH LAYOUT ===== */
     .main{ width:100%; max-width:none; margin:0; padding:18px 18px; }
     @media (max-width: 600px){ .main{ padding: 12px 10px; } }
 
@@ -111,7 +142,6 @@
     .filter-dot{width:8px;height:8px;border-radius:50%}
     .toolbar-right{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
 
-    /* ===== TABLE ===== */
     .table-wrap{
       width: 100%;
       max-width: none;
@@ -123,7 +153,7 @@
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      min-width: 1380px; /* um pouco menor p/ caber melhor */
+      min-width: 1380px;
       font-size: 12px;
     }
 
@@ -151,15 +181,9 @@
     tr:hover td{background:#f6f8fa}
     tr:last-child td{border-bottom:none}
 
-    /* ===== EXP: só cor na data (sem badge) ===== */
-    td.exp-soon{
-      color: var(--red) !important;
-      font-weight: 900;
-    }
-    td.exp-warn{
-      color: var(--orange) !important;
-      font-weight: 900;
-    }
+    /* EXP: só cor (vencido normal) */
+    td.exp-soon{ color: var(--red) !important; font-weight: 900; }
+    td.exp-warn{ color: var(--orange) !important; font-weight: 900; }
 
     .actions-col{display:flex;gap:6px;justify-content:flex-end}
     .icon-btn{
@@ -178,7 +202,6 @@
     .icon-btn.edit{color:#8a5c00;border-color:#f2c94c;background:#fff7e6}
     .icon-btn.del{color:#fff;border-color:var(--red);background:var(--red)}
 
-    /* widths */
     th.col-re, td.col-re{width:100px}
     th.col-nome, td.col-nome{width:260px}
     th.col-tipo, td.col-tipo{width:120px}
@@ -199,11 +222,9 @@
     .badge-terc{background:#fff4d6;color:#8a5c00;border-color:#fde68a}
     .badge-mob-e{background:#eafff0;color:#166534;border-color:#bbf7d0}
     .badge-mob-s{background:#ffe5e5;color:#b42318;border-color:#fda29b}
-    .badge-exp-red{background:#ffe5e5;color:#b42318;border:1px solid #fda29b}
 
     .empty{text-align:center;padding:60px 20px;color:#8c959f;font-size:13px;display:none}
 
-    /* ===== Rankings ===== */
     .rankings{ margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .rank-card{
       background: var(--surface);
@@ -238,7 +259,6 @@
     .rank-name{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight: 800; color: var(--text); }
     .rank-val{ font-family:'DM Mono', monospace; text-align:right; color: var(--text2); font-weight: 900; }
 
-    /* ===== Modals ===== */
     .modal-bg{
       display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);
       z-index:200;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;
@@ -530,24 +550,108 @@ const SENHA = "Obcas2026";
 ============================= */
 let activeFilter = 'all';
 let editTab = 'ef';
-let editingIndex = null;   // { tipo, id }
-let deleteTarget = null;   // { tipo, id }
+let editingIndex = null;
+let deleteTarget = null;
 let importBuffer = [];
 let autenticado = false;
 let pendingAction = null;
 
-const dados = {
-  efetivo:   JSON.parse(localStorage.getItem('obcas_ef') || '[]'),
-  pj:        JSON.parse(localStorage.getItem('obcas_pj') || '[]'),
-  terceiros: JSON.parse(localStorage.getItem('obcas_tc') || '[]'),
-  mob:       JSON.parse(localStorage.getItem('obcas_mb') || '[]')
-};
+// Dados locais em memória (renderiza a tela)
+const dados = { efetivo: [], pj: [], terceiros: [], mob: [] };
 
-function salvarLS() {
-  localStorage.setItem('obcas_ef', JSON.stringify(dados.efetivo));
-  localStorage.setItem('obcas_pj', JSON.stringify(dados.pj));
-  localStorage.setItem('obcas_tc', JSON.stringify(dados.terceiros));
-  localStorage.setItem('obcas_mb', JSON.stringify(dados.mob));
+// Controle para evitar loop (snapshot -> render -> save)
+let __hydratingFromRemote = false;
+let __lastRemoteJson = '';
+
+/* =============================
+   FIRESTORE SYNC
+============================= */
+function fb() {
+  const x = window.__obcasFirebase;
+  if (!x) throw new Error('Firebase não inicializou (script type="module").');
+  return x;
+}
+
+function dbRef() {
+  const { db, doc, WORK_ID } = fb();
+  return doc(db, 'obras', WORK_ID);
+}
+
+function stableJson(obj) {
+  return JSON.stringify(obj, Object.keys(obj).sort());
+}
+
+function getPayloadForRemote() {
+  // NÃO levar writeKey pro UI; só mandamos ao salvar.
+  return {
+    efetivo: dados.efetivo,
+    pj: dados.pj,
+    terceiros: dados.terceiros,
+    mob: dados.mob,
+  };
+}
+
+async function salvarRemoto(reason = 'update') {
+  // Se estamos aplicando snapshot remoto, não regravar.
+  if (__hydratingFromRemote) return;
+
+  const { setDoc, serverTimestamp, WRITE_KEY } = fb();
+  const payload = getPayloadForRemote();
+
+  const jsonNow = JSON.stringify(payload);
+  // Se não mudou vs último remoto, não grava
+  if (jsonNow === __lastRemoteJson) return;
+
+  await setDoc(dbRef(), {
+    ...payload,
+    writeKey: WRITE_KEY,
+    updatedAt: serverTimestamp(),
+    updatedReason: reason
+  }, { merge: true });
+}
+
+function applyRemoteDoc(data) {
+  __hydratingFromRemote = true;
+  try {
+    dados.efetivo = Array.isArray(data.efetivo) ? data.efetivo : [];
+    dados.pj = Array.isArray(data.pj) ? data.pj : [];
+    dados.terceiros = Array.isArray(data.terceiros) ? data.terceiros : [];
+    dados.mob = Array.isArray(data.mob) ? data.mob : [];
+
+    migrateData();
+    renderTabela();
+
+    __lastRemoteJson = JSON.stringify(getPayloadForRemote());
+  } finally {
+    __hydratingFromRemote = false;
+  }
+}
+
+function iniciarSyncRemoto() {
+  const { onSnapshot } = fb();
+  onSnapshot(dbRef(), (snap) => {
+    if (!snap.exists()) {
+      // primeira vez: cria doc vazio (para todos PCs terem base)
+      // não chama salvarRemoto (regras exigem writeKey, mas aqui já tem)
+      salvarRemoto('init').catch(console.error);
+      return;
+    }
+    const data = snap.data() || {};
+    // Evita "piscar" se o remoto estiver igual
+    const remotePayload = {
+      efetivo: data.efetivo || [],
+      pj: data.pj || [],
+      terceiros: data.terceiros || [],
+      mob: data.mob || []
+    };
+    const remoteJson = JSON.stringify(remotePayload);
+    if (remoteJson === __lastRemoteJson) return;
+    __lastRemoteJson = remoteJson;
+    applyRemoteDoc(remotePayload);
+  }, (err) => {
+    console.error('Erro Firestore onSnapshot:', err);
+    // Se rules negarem, você verá "Missing or insufficient permissions"
+  });
 }
 
 /* =============================
@@ -561,24 +665,16 @@ function addDays(isoDate, days) { if (!isoDate) return ''; const dt = new Date(i
 function exp30FromAdmissao(adm) { return addDays(adm, 29); }
 function exp60FromAdmissao(adm) { return addDays(adm, 59); }
 
-/* ===== EXP: sem badge (só cor na data) ===== */
-function statusExp(d) { return ''; } // mantém a chamada mas não imprime nada
-
+// sem badge; só cor via classe
+function statusExp(d) { return ''; }
 function expDateClass(isoDate) {
   if (!isoDate) return '';
   const now = new Date(); now.setHours(0,0,0,0);
   const dt = new Date(isoDate + 'T00:00:00');
   const diff = Math.ceil((dt - now) / 86400000);
-
-  // vencido: NORMAL (sem cor)
-  if (diff < 0) return '';
-
-  // vermelho: < 10 dias
+  if (diff < 0) return '';       // vencido: normal
   if (diff < 10) return 'exp-soon';
-
-  // amarelo: 10..30
   if (diff <= 30) return 'exp-warn';
-
   return '';
 }
 
@@ -620,7 +716,7 @@ function fmtMoney(v) {
 }
 
 /* =============================
-   SETOR (AUTO) - corrigido para suas funções
+   SETOR (AUTO)
 ============================= */
 function normalizeFuncAliases(k) {
   return k
@@ -632,7 +728,7 @@ function normalizeFuncAliases(k) {
     .replace(/\bSEGTRABALHO\b/g, 'SEGURANCA DO TRABALHO')
     .replace(/\bSESS[ÃA]O\b/g, 'SESSAO')
     .replace(/\bPRODUC[ÃA]O\b/g, 'PRODUCAO')
-    .replace(/\bMORISTA\b/g, 'MOTORISTA') /* erro comum */
+    .replace(/\bMORISTA\b/g, 'MOTORISTA')
     .replace(/\bMUNK\b/g, 'MUNCK')
     .replace(/\bELETRECISTA\b/g, 'ELETRICISTA')
     .replace(/\bVIDRADORISTA\b/g, 'VIBRADORISTA');
@@ -645,12 +741,10 @@ const ADM_KEYS = [
   'SUPERVISOR DE OBRAS CIVIS','ENCARREGADO ADMINISTRATIVO','ENCARREGADO ADM DE OBRAS',
   'COORDENADOR DE SEGURANCA DO TRABALHO','COORDENADOR DE RH','ENGENHEIRO DE SEGURANCA DO TRABALHO',
   'ENGENHEIRO CIVIL','ENCARREGADO GERAL DE OBRAS',
-  'COORD DE SEG TRABALHO' /* seu caso */
+  'COORD DE SEG TRABALHO'
 ].map(normKey);
 
-/* Operacionais novos + base */
 const OP_KEYS = [
-  /* seus casos */
   'ENCARREGADO DE PRODUCAO',
   'ENCARREGADO DE SERV GERAIS',
   'ENCARREGADO DE SERVICOS GERAIS',
@@ -659,7 +753,6 @@ const OP_KEYS = [
   'TECNICO EM ENFERMAGEM',
   'MOTORISTA DE AMBULANCIA',
 
-  /* base */
   'OPERACIONAL',
   'AJUDANTE GERAL',
   'ALMOXARIFE',
@@ -687,19 +780,14 @@ function setorFromFuncao(funcao) {
   if (!k) return '';
   k = normalizeFuncAliases(k);
 
-  // regra direta: coordenação/segurança do trabalho => ADM
   if (k.includes('SEGURANCA DO TRABALHO')) return 'ADM';
   if (k.includes('COORD') && k.includes('SEG')) return 'ADM';
 
   if (k.includes('ADMIN') || k === 'ADM') return 'ADM';
   if (ADM_KEYS.some(x => k.includes(x))) return 'ADM';
 
-  // variações do marteleteiro "I/II/V"
   if (k.startsWith('MARTELETEIRO')) return 'Operacional';
-
   if (OP_KEYS.some(x => k.includes(x))) return 'Operacional';
-
-  // fallback: encarregado que não seja ADM => Operacional
   if (k.includes('ENCARREGADO')) return 'Operacional';
 
   return '';
@@ -753,9 +841,7 @@ function migrateData() {
     if (r.salm !== '') r.salm = fmtMoney(r.salm);
     return r;
   });
-  salvarLS();
 }
-migrateData();
 
 /* =============================
    FILTERS
@@ -815,7 +901,7 @@ function getRows() {
 }
 
 /* =============================
-   TABLE RENDER (empresa só p/ terceiros)
+   TABLE RENDER
 ============================= */
 const COLS = [
   { label:'RE', cls:'col-re mono' },
@@ -993,9 +1079,9 @@ function wipeAll(){
   dados.pj = [];
   dados.terceiros = [];
   dados.mob = [];
-  salvarLS();
   closeModal('modal-wipe');
   renderTabela();
+  salvarRemoto('wipeAll').catch(console.error);
 }
 
 /* =============================
@@ -1037,7 +1123,7 @@ function autoCalcExp() {
 }
 
 /* =============================
-   EDIT/DELETE BY ID + TRANSFER (efetivo <-> mobilização)
+   EDIT/DELETE BY ID + TRANSFER
 ============================= */
 function findById(tipo, id) {
   const arr = (tipo==='efetivo') ? dados.efetivo :
@@ -1088,7 +1174,6 @@ function abrirEditarPorId(tipo, id) {
       document.getElementById('mb-salm').value = r.salm || '';
     }
 
-    // transfer buttons
     const ts = document.getElementById('transfer-section');
     const tb = document.getElementById('transfer-btns');
     ts.style.display = 'block';
@@ -1155,9 +1240,9 @@ function transferirRegistroPorId(deTipo, deId, paraTipo) {
     if (!existsTerceiro(tcRec.nome, tcRec.empresa)) dados.terceiros.push(tcRec);
   }
 
-  salvarLS();
   renderTabela();
   closeModal('modal-edicao');
+  salvarRemoto('transfer').catch(console.error);
 }
 
 function abrirExcluirPorId(tipo, id) {
@@ -1176,21 +1261,21 @@ function confirmarExclusao() {
   const { tipo, id } = deleteTarget;
   const { arr, idx } = findById(tipo, id);
   if (idx >= 0) arr.splice(idx, 1);
-  salvarLS();
   renderTabela();
   closeModal('modal-confirm');
   deleteTarget = null;
+  salvarRemoto('delete').catch(console.error);
 }
 
 /* =============================
    SAVE
 ============================= */
 function salvarRegistro() {
-  const fb = document.getElementById('add-feedback');
+  const fbk = document.getElementById('add-feedback');
 
   if (editTab === 'ef') {
     const n = document.getElementById('ef-nome').value.trim();
-    if (!n) { fb.style.color = 'var(--red)'; fb.textContent = 'Informe o nome.'; return; }
+    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; return; }
 
     const adm = document.getElementById('ef-admissao').value;
     const re  = document.getElementById('ef-re').value.trim();
@@ -1221,8 +1306,8 @@ function salvarRegistro() {
     if (!editingIndex) {
       const destArr = (destTipo === 'pj') ? dados.pj : dados.efetivo;
       if (existsEfOrPj(destArr, obj)) {
-        fb.style.color = 'var(--red)';
-        fb.textContent = 'Já existe um cadastro com este RE ou com o mesmo Nome + Admissão.';
+        fbk.style.color = 'var(--red)';
+        fbk.textContent = 'Já existe um cadastro com este RE ou com o mesmo Nome + Admissão.';
         return;
       }
     }
@@ -1244,8 +1329,8 @@ function salvarRegistro() {
   } else if (editTab === 'tc') {
     const n = document.getElementById('tc-nome').value.trim();
     const emp = document.getElementById('tc-empresa').value.trim();
-    if (!n) { fb.style.color = 'var(--red)'; fb.textContent = 'Informe o nome.'; return; }
-    if (!emp) { fb.style.color = 'var(--red)'; fb.textContent = 'Informe a empresa.'; return; }
+    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; return; }
+    if (!emp) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe a empresa.'; return; }
 
     const obj = ensureId({
       _id: (editingIndex && editingIndex.tipo === 'terceiro') ? editingIndex.id : undefined,
@@ -1255,8 +1340,8 @@ function salvarRegistro() {
     });
 
     if (!editingIndex && existsTerceiro(obj.nome, obj.empresa)) {
-      fb.style.color = 'var(--red)';
-      fb.textContent = 'Este terceirizado já está cadastrado (Nome + Empresa).';
+      fbk.style.color = 'var(--red)';
+      fbk.textContent = 'Este terceirizado já está cadastrado (Nome + Empresa).';
       return;
     }
 
@@ -1267,7 +1352,7 @@ function salvarRegistro() {
 
   } else {
     const n = document.getElementById('mb-nome').value.trim();
-    if (!n) { fb.style.color = 'var(--red)'; fb.textContent = 'Informe o nome.'; return; }
+    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; return; }
 
     const salh = fmtMoney(document.getElementById('mb-salh').value);
     const salm = fmtMoney(document.getElementById('mb-salm').value);
@@ -1287,8 +1372,8 @@ function salvarRegistro() {
     });
 
     if (!editingIndex && existsMob(obj.nome, obj.movTipo)) {
-      fb.style.color = 'var(--red)';
-      fb.textContent = 'Este registro de mobilização já existe (mesmo nome + tipo).';
+      fbk.style.color = 'var(--red)';
+      fbk.textContent = 'Este registro de mobilização já existe (mesmo nome + tipo).';
       return;
     }
 
@@ -1298,13 +1383,14 @@ function salvarRegistro() {
     } else dados.mob.push(obj);
   }
 
-  salvarLS();
   renderTabela();
 
-  fb.style.color = 'var(--green)';
-  fb.textContent = editingIndex ? 'Salvo com sucesso!' : 'Adicionado com sucesso!';
+  fbk.style.color = 'var(--green)';
+  fbk.textContent = editingIndex ? 'Salvo com sucesso!' : 'Adicionado com sucesso!';
   const wasEditing = !!editingIndex;
   editingIndex = null;
+
+  salvarRemoto('save').catch(console.error);
 
   if (wasEditing) setTimeout(() => closeModal('modal-edicao'), 900);
   else limparForms();
@@ -1351,8 +1437,8 @@ function findHeaderRow(rows){
 }
 
 function processarArquivo(file){
-  const fb = document.getElementById('import-feedback');
-  fb.textContent = 'Lendo arquivo...'; fb.style.color = 'var(--blue)';
+  const fbk = document.getElementById('import-feedback');
+  fbk.textContent = 'Lendo arquivo...'; fbk.style.color = 'var(--blue)';
 
   const reader = new FileReader();
   reader.onload = e => {
@@ -1360,7 +1446,7 @@ function processarArquivo(file){
       const wb = XLSX.read(e.target.result, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-      if (rows.length < 2){ fb.style.color='var(--red)'; fb.textContent='Planilha vazia.'; return; }
+      if (rows.length < 2){ fbk.style.color='var(--red)'; fbk.textContent='Planilha vazia.'; return; }
 
       const headerRowIdx = findHeaderRow(rows);
       const header = rows[headerRowIdx];
@@ -1374,7 +1460,7 @@ function processarArquivo(file){
       const idxSALM = hRow.indexOf('SALARIOMENSAL');
       const idxSIT  = hRow.indexOf('SITUACAO');
 
-      if (idxRE < 0 || idxNOME < 0){ fb.style.color='var(--red)'; fb.textContent='Não encontrei colunas RE e NOME.'; return; }
+      if (idxRE < 0 || idxNOME < 0){ fbk.style.color='var(--red)'; fbk.textContent='Não encontrei colunas RE e NOME.'; return; }
 
       importBuffer = [];
       let movedToMob = 0;
@@ -1415,8 +1501,8 @@ function processarArquivo(file){
       });
 
       if (!importBuffer.length && !movedToMob){
-        fb.style.color='var(--red)';
-        fb.textContent='Nenhum novo registro.';
+        fbk.style.color='var(--red)';
+        fbk.textContent='Nenhum novo registro.';
         return;
       }
 
@@ -1426,15 +1512,15 @@ function processarArquivo(file){
         </div>
       `;
 
-      fb.style.color='var(--green)';
-      fb.textContent='';
+      fbk.style.color='var(--green)';
+      fbk.textContent='';
       document.getElementById('btn-confirmar-import').style.display = importBuffer.length ? 'inline-flex' : 'none';
 
-      salvarLS();
       renderTabela();
+      salvarRemoto('import-parse').catch(console.error);
     } catch(err){
-      fb.style.color='var(--red)';
-      fb.textContent='Erro ao ler: ' + err.message;
+      fbk.style.color='var(--red)';
+      fbk.textContent='Erro ao ler: ' + err.message;
     }
   };
   reader.readAsArrayBuffer(file);
@@ -1448,9 +1534,9 @@ function confirmarImport(){
     else dados.efetivo.push(r);
   });
   importBuffer = [];
-  salvarLS();
   renderTabela();
   closeModal('modal-import');
+  salvarRemoto('import-confirm').catch(console.error);
 }
 
 /* =============================
@@ -1473,6 +1559,7 @@ function baixarModelo(){
    INIT
 ============================= */
 renderTabela();
+iniciarSyncRemoto();
 </script>
 </body>
 </html>
