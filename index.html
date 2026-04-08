@@ -310,7 +310,33 @@
       .stats{grid-template-columns:repeat(4,1fr)}
       .rankings{grid-template-columns: 1fr}
       .form-row{grid-template-columns:1fr}
-    }
+
+#modal-view-pass{
+  position: fixed;
+  inset: 0;
+}
+
+#modal-view-pass::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+
+  /* Troque para o arquivo certo */
+  background-image: url("logo.jpg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: min(520px, 70vw);
+
+  opacity: 0.10;           /* intensidade da logo */
+  filter: grayscale(1);    /* opcional: deixa mais “marca d’água” */
+  pointer-events: none;    /* não atrapalha clicar */
+}
+
+/* Garante que o modal fique acima da logo */
+#modal-view-pass > .modal{
+  position: relative;
+  z-index: 1;
+}
   </style>
 </head>
 
