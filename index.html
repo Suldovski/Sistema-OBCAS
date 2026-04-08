@@ -1659,10 +1659,10 @@ function confirmarImport(){
 function baixarModelo(){
   const wb = XLSX.utils.book_new();
   const data = [
-    ['RE','NOME','DATA DE ADMISSÃO','FUNÇÃO','SALARIO HORA','SALARIO MENSAL','SITUACAO'],
-    ['4784','ADALTON DE OLIVEIRA','2026-02-14','AJUDANTE GERAL', 12.34, 2500, 'ATIVO'],
-    ['PJ-8899','JOAO DA SILVA','2026-03-01','SUPERVISOR ADMINISTRATIVO', 30, 6000, 'ATIVO'],
-    ['ASO-0001','MARIA TESTE','2026-03-01','MARTELETEIRO II', '', '', 'AGUARDA EXAME']
+    ['RE','NOME','DATA NASC','CBO','DATA DE ADMISSÃO','FUNÇÃO','SALARIO HORA','SALARIO MENSAL','SITUACAO'],
+    ['4784','ADALTON DE OLIVEIRA','1990-05-20','7170-20','2026-02-14','AJUDANTE GERAL', 12.34, 2500, 'ATIVO'],
+    ['PJ-8899','JOAO DA SILVA','1985-01-10','1421-05','2026-03-01','SUPERVISOR ADMINISTRATIVO', 30, 6000, 'ATIVO'],
+    ['ASO-0001','MARIA TESTE','1999-11-02','7231-10','2026-03-01','MARTELETEIRO II', '', '', 'AGUARDA EXAME']
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
   XLSX.utils.book_append_sheet(wb, ws, 'Efetivo');
