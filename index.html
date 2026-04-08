@@ -28,10 +28,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // Identificador da base compartilhada (todos PCs usam o mesmo)
     const WORK_ID = "obcas";
-
-    // "Senha da obra" usada SOMENTE para permitir escrita no Firestore (Rules)
     const WRITE_KEY = "Obcas2026";
 
     window.__obcasFirebase = {
@@ -181,7 +178,6 @@
     tr:hover td{background:#f6f8fa}
     tr:last-child td{border-bottom:none}
 
-    /* EXP: só cor (vencido normal) */
     td.exp-soon{ color: var(--red) !important; font-weight: 900; }
     td.exp-warn{ color: var(--orange) !important; font-weight: 900; }
 
@@ -556,10 +552,10 @@ let importBuffer = [];
 let autenticado = false;
 let pendingAction = null;
 
-// Dados locais em memória (renderiza a tela)
+// Dados locais em memória
 const dados = { efetivo: [], pj: [], terceiros: [], mob: [] };
 
-// Controle para evitar loop (snapshot -> render -> save)
+// controle anti-loop
 let __hydratingFromRemote = false;
 let __lastRemoteJson = '';
 
@@ -577,12 +573,15 @@ function dbRef() {
   return doc(db, 'obras', WORK_ID);
 }
 
-function stableJson(obj) {
-  return JSON.stringify(obj, Object.keys(obj).sort());
+// JSON com ordem estável (pra não ficar diferente a cada stringify)
+function stableStringify(obj) {
+  const allKeys = [];
+  JSON.stringify(obj, (k, v) => (allKeys.push(k), v));
+  allKeys.sort();
+  return JSON.stringify(obj, allKeys);
 }
 
 function getPayloadForRemote() {
-  // NÃO levar writeKey pro UI; só mandamos ao salvar.
   return {
     efetivo: dados.efetivo,
     pj: dados.pj,
@@ -592,14 +591,12 @@ function getPayloadForRemote() {
 }
 
 async function salvarRemoto(reason = 'update') {
-  // Se estamos aplicando snapshot remoto, não regravar.
   if (__hydratingFromRemote) return;
 
   const { setDoc, serverTimestamp, WRITE_KEY } = fb();
   const payload = getPayloadForRemote();
 
-  const jsonNow = JSON.stringify(payload);
-  // Se não mudou vs último remoto, não grava
+  const jsonNow = stableStringify(payload);
   if (jsonNow === __lastRemoteJson) return;
 
   await setDoc(dbRef(), {
@@ -608,6 +605,9 @@ async function salvarRemoto(reason = 'update') {
     updatedAt: serverTimestamp(),
     updatedReason: reason
   }, { merge: true });
+
+  // após gravar, marca como "já sincronizado"
+  __lastRemoteJson = jsonNow;
 }
 
 function applyRemoteDoc(data) {
@@ -621,7 +621,7 @@ function applyRemoteDoc(data) {
     migrateData();
     renderTabela();
 
-    __lastRemoteJson = JSON.stringify(getPayloadForRemote());
+    __lastRemoteJson = stableStringify(getPayloadForRemote());
   } finally {
     __hydratingFromRemote = false;
   }
@@ -631,26 +631,25 @@ function iniciarSyncRemoto() {
   const { onSnapshot } = fb();
   onSnapshot(dbRef(), (snap) => {
     if (!snap.exists()) {
-      // primeira vez: cria doc vazio (para todos PCs terem base)
-      // não chama salvarRemoto (regras exigem writeKey, mas aqui já tem)
+      // primeira vez: cria doc vazio
       salvarRemoto('init').catch(console.error);
       return;
     }
     const data = snap.data() || {};
-    // Evita "piscar" se o remoto estiver igual
     const remotePayload = {
       efetivo: data.efetivo || [],
       pj: data.pj || [],
       terceiros: data.terceiros || [],
       mob: data.mob || []
     };
-    const remoteJson = JSON.stringify(remotePayload);
+
+    const remoteJson = stableStringify(remotePayload);
     if (remoteJson === __lastRemoteJson) return;
+
     __lastRemoteJson = remoteJson;
     applyRemoteDoc(remotePayload);
   }, (err) => {
     console.error('Erro Firestore onSnapshot:', err);
-    // Se rules negarem, você verá "Missing or insufficient permissions"
   });
 }
 
@@ -665,14 +664,12 @@ function addDays(isoDate, days) { if (!isoDate) return ''; const dt = new Date(i
 function exp30FromAdmissao(adm) { return addDays(adm, 29); }
 function exp60FromAdmissao(adm) { return addDays(adm, 59); }
 
-// sem badge; só cor via classe
-function statusExp(d) { return ''; }
 function expDateClass(isoDate) {
   if (!isoDate) return '';
   const now = new Date(); now.setHours(0,0,0,0);
   const dt = new Date(isoDate + 'T00:00:00');
   const diff = Math.ceil((dt - now) / 86400000);
-  if (diff < 0) return '';       // vencido: normal
+  if (diff < 0) return '';
   if (diff < 10) return 'exp-soon';
   if (diff <= 30) return 'exp-warn';
   return '';
@@ -699,7 +696,6 @@ function isPJ(re) { return normRe(re).includes('PJ'); }
 function isASOInRe(re) { return normRe(re).includes('ASO'); }
 function isAguardaExame(situacao) { return normKey(situacao).includes('AGUARDA EXAME'); }
 
-/* dinheiro */
 function parseMoneyToNumber(v) {
   if (v === null || v === undefined || v === '') return null;
   if (typeof v === 'number') return v;
@@ -816,7 +812,7 @@ function existsMob(nome, movTipo) {
 }
 
 /* =============================
-   MIGRATE (garante campos)
+   MIGRATE
 ============================= */
 function migrateData() {
   const fixEf = r => {
@@ -1002,7 +998,7 @@ function renderTabela() {
 }
 
 /* =============================
-   STATS
+   STATS / RANK
 ============================= */
 function atualizarStats() {
   document.getElementById('stat-total').textContent = dados.efetivo.length + dados.pj.length + dados.terceiros.length + dados.mob.length;
@@ -1014,9 +1010,6 @@ function atualizarStats() {
   document.getElementById('stat-mob').textContent   = dados.mob.length;
 }
 
-/* =============================
-   RANKINGS
-============================= */
 function buildTopCounts(items, keyFn, topN = 12, emptyLabel = 'Não informado') {
   const counts = new Map();
   for (const it of items) {
@@ -1026,7 +1019,6 @@ function buildTopCounts(items, keyFn, topN = 12, emptyLabel = 'Não informado') 
   }
   return [...counts.entries()].sort((a,b) => b[1] - a[1]).slice(0, topN);
 }
-
 function renderRanking(elId, rows) {
   const el = document.getElementById(elId);
   el.innerHTML = rows.map(([name, val], i) => `
@@ -1037,20 +1029,16 @@ function renderRanking(elId, rows) {
     </div>
   `).join('');
 }
-
 function atualizarRankings() {
   const ef = dados.efetivo || [];
   document.getElementById('rank-func-sub').textContent = ef.length ? `Base: ${ef.length} efetivo(s)` : 'Sem dados';
   document.getElementById('rank-setor-sub').textContent = ef.length ? `Base: ${ef.length} efetivo(s)` : 'Sem dados';
-
-  const topFun = buildTopCounts(ef, r => r.funcao, 12, 'Função não informada');
-  const topSet = buildTopCounts(ef, r => r.setor, 12, 'Setor não informado');
-  renderRanking('rank-funcoes', topFun);
-  renderRanking('rank-setores', topSet);
+  renderRanking('rank-funcoes', buildTopCounts(ef, r => r.funcao, 12, 'Função não informada'));
+  renderRanking('rank-setores', buildTopCounts(ef, r => r.setor, 12, 'Setor não informado'));
 }
 
 /* =============================
-   AUTH / MODALS
+   MODALS / AUTH
 ============================= */
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
@@ -1085,7 +1073,7 @@ function wipeAll(){
 }
 
 /* =============================
-   EDIT PANEL
+   EDIT
 ============================= */
 function openEditPanel() {
   requireAuth(() => {
@@ -1122,9 +1110,6 @@ function autoCalcExp() {
   document.getElementById('ef-exp60').value = exp60FromAdmissao(adm);
 }
 
-/* =============================
-   EDIT/DELETE BY ID + TRANSFER
-============================= */
 function findById(tipo, id) {
   const arr = (tipo==='efetivo') ? dados.efetivo :
               (tipo==='pj') ? dados.pj :
@@ -1384,7 +1369,6 @@ function salvarRegistro() {
   }
 
   renderTabela();
-
   fbk.style.color = 'var(--green)';
   fbk.textContent = editingIndex ? 'Salvo com sucesso!' : 'Adicionado com sucesso!';
   const wasEditing = !!editingIndex;
@@ -1516,8 +1500,8 @@ function processarArquivo(file){
       fbk.textContent='';
       document.getElementById('btn-confirmar-import').style.display = importBuffer.length ? 'inline-flex' : 'none';
 
+      // IMPORTANTE: aqui é só preview, NÃO salva no Firestore
       renderTabela();
-      salvarRemoto('import-parse').catch(console.error);
     } catch(err){
       fbk.style.color='var(--red)';
       fbk.textContent='Erro ao ler: ' + err.message;
@@ -1558,6 +1542,7 @@ function baixarModelo(){
 /* =============================
    INIT
 ============================= */
+document.getElementById('date-badge').textContent = hoje();
 renderTabela();
 iniciarSyncRemoto();
 </script>
