@@ -8,13 +8,11 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-  <!-- Firebase (Firestore) -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-    import {
-      getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+  <!-- Firebase (Firestore) - COMPAT (sem type="module") -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
 
+  <script>
     const firebaseConfig = {
       apiKey: "AIzaSyC_4T-ZoPhOtrR0-6M6poXwhTo0N0Wr6ro",
       authDomain: "bucagrans-obcas.firebaseapp.com",
@@ -25,8 +23,8 @@
       measurementId: "G-30D1H0BHVN"
     };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
     // Identificador da base compartilhada (todos PCs usam o mesmo)
     const WORK_ID = "obcas";
@@ -35,9 +33,12 @@
     const WRITE_KEY = "Obcas2026";
 
     window.__obcasFirebase = {
-      db, doc, getDoc, setDoc, onSnapshot, serverTimestamp,
-      WORK_ID, WRITE_KEY
+      db,
+      WORK_ID,
+      WRITE_KEY
     };
+
+    console.log("Firebase compat inicializado OK");
   </script>
 
   <style>
@@ -564,17 +565,17 @@ let __hydratingFromRemote = false;
 let __lastRemoteJson = '';
 
 /* =============================
-   FIRESTORE SYNC
+   FIRESTORE SYNC (COMPAT)
 ============================= */
 function fb() {
   const x = window.__obcasFirebase;
-  if (!x) throw new Error('Firebase não inicializou (script type="module").');
+  if (!x) throw new Error('Firebase não inicializou.');
   return x;
 }
 
 function dbRef() {
-  const { db, doc, WORK_ID } = fb();
-  return doc(db, 'obras', WORK_ID);
+  const { db, WORK_ID } = fb();
+  return db.collection('obras').doc(WORK_ID);
 }
 
 function stableJson(obj) {
@@ -595,19 +596,21 @@ async function salvarRemoto(reason = 'update') {
   // Se estamos aplicando snapshot remoto, não regravar.
   if (__hydratingFromRemote) return;
 
-  const { setDoc, serverTimestamp, WRITE_KEY } = fb();
+  const { WRITE_KEY } = fb();
   const payload = getPayloadForRemote();
 
   const jsonNow = JSON.stringify(payload);
   // Se não mudou vs último remoto, não grava
   if (jsonNow === __lastRemoteJson) return;
 
-  await setDoc(dbRef(), {
+  await dbRef().set({
     ...payload,
     writeKey: WRITE_KEY,
-    updatedAt: serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedReason: reason
   }, { merge: true });
+
+  __lastRemoteJson = jsonNow;
 }
 
 function applyRemoteDoc(data) {
@@ -628,11 +631,9 @@ function applyRemoteDoc(data) {
 }
 
 function iniciarSyncRemoto() {
-  const { onSnapshot } = fb();
-  onSnapshot(dbRef(), (snap) => {
-    if (!snap.exists()) {
+  dbRef().onSnapshot((snap) => {
+    if (!snap.exists) {
       // primeira vez: cria doc vazio (para todos PCs terem base)
-      // não chama salvarRemoto (regras exigem writeKey, mas aqui já tem)
       salvarRemoto('init').catch(console.error);
       return;
     }
