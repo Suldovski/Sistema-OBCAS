@@ -312,43 +312,35 @@
       .stats{grid-template-columns:repeat(4,1fr)}
       .rankings{grid-template-columns: 1fr}
       .form-row{grid-template-columns:1fr}
-
-/* LOCK SCREEN com logo no fundo */
+/* ===== LOCK SCREEN: fundo só com a imagem (sem escuro/blur) ===== */
 #modal-view-pass{
-  /* seu .modal-bg já é position:fixed e inset:0, mas reforçamos */
   position: fixed;
   inset: 0;
-  display: flex;               /* garante que continue centralizando */
-  align-items: flex-start;     /* mantém seu layout */
-  justify-content: center;
-  padding: 40px 16px;
-  overflow-y: auto;
-
-  /* importante: cria “contexto” pro ::before */
   isolation: isolate;
+
+  /* remove o overlay escuro do .modal-bg */
+  background: transparent !important;
+  backdrop-filter: none !important;
 }
 
+/* imagem nítida cobrindo toda a tela */
 #modal-view-pass::before{
   content: "";
   position: absolute;
   inset: 0;
-  z-index: -1;                 /* joga o fundo atrás do conteúdo */
+  z-index: -1;
 
-  background-image: url("./logo.jpeg");
-  background-repeat: no-repeat;
-  background-position: center;
-  background-size: min(520px, 70vw);
+  background: url("./logo.jpeg") center / cover no-repeat;
 
-  opacity: 0.12;
-  filter: grayscale(1);
+  opacity: 1;                 /* imagem 100% */
+  filter: none;               /* nítida */
   pointer-events: none;
 }
 
-/* Garante que o card fique na frente */
+/* modal em cima */
 #modal-view-pass > .modal{
   position: relative;
   z-index: 1;
-}
 }
   </style>
 </head>
