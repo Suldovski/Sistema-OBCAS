@@ -622,7 +622,10 @@ function unlockView() {
   if (app) app.style.display = 'block';
   if (modal) modal.style.display = 'none';
 
-  // Só depois de desbloquear: render + sync
+  // NOVO: autentica tudo de uma vez
+  autenticado = true;
+  pendingAction = null;
+
   renderTabela();
   iniciarSyncRemoto();
 }
