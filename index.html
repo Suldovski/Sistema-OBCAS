@@ -1137,31 +1137,32 @@ function renderRanking(elId, rows) {
 }
 
 function atualizarRankings() {
-  const rows = getRows();
-
   // Totais (base geral do sistema)
-  const totalEf  = (dados.efetivo || []).length;
-  const totalPj  = (dados.pj || []).length;
+  const totalEf   = (dados.efetivo || []).length;
+  const totalPj   = (dados.pj || []).length;
   const totalTerc = (dados.terceiros || []).length;
-  const totalMob = (dados.mob || []).length;
+  const totalMob  = (dados.mob || []).length;
   const totalGeral = totalEf + totalPj + totalTerc + totalMob;
 
-  // Ranking (mantém só Efetivo/PJ, porque são os que têm Função/Setor consistentes)
+  // Base do ranking: usa o que está na tela (getRows) e pega só efetivo/pj
+  const rows = getRows();
   const baseRank = rows.filter(r => (r._t === 'efetivo' || r._t === 'pj'));
 
-  // Atualiza subtítulos acima dos rankings
+  // Subtítulo (Total geral)
   const comp = `Efetivos: ${totalEf} | PJ: ${totalPj} | Terceiros: ${totalTerc} | Mobilização: ${totalMob}`;
   const sub = totalGeral ? `Base total: ${totalGeral} registro(s) — ${comp}` : 'Sem dados';
 
   const elFuncSub = document.getElementById('rank-func-sub');
-  const elSetSub = document.getElementById('rank-setor-sub');
+  const elSetSub  = document.getElementById('rank-setor-sub');
   if (elFuncSub) elFuncSub.textContent = sub;
-  if (elSetSub) elSetSub.textContent = sub;
+  if (elSetSub)  elSetSub.textContent = sub;
 
   // Se não tem base para ranking, limpa
   if (!baseRank.length) {
-    document.getElementById('rank-funcoes').innerHTML = '<div style="padding:10px;color:var(--text2);font-weight:800">Sem dados para ranking.</div>';
-    document.getElementById('rank-setores').innerHTML = '<div style="padding:10px;color:var(--text2);font-weight:800">Sem dados para ranking.</div>';
+    document.getElementById('rank-funcoes').innerHTML =
+      '<div style="padding:10px;color:var(--text2);font-weight:800">Sem dados para ranking.</div>';
+    document.getElementById('rank-setores').innerHTML =
+      '<div style="padding:10px;color:var(--text2);font-weight:800">Sem dados para ranking.</div>';
     return;
   }
 
@@ -1193,7 +1194,16 @@ function atualizarRankings() {
 
   const setores = Object.entries(setorCounts)
     .sort((a, b) => b[1] - a[1])
-    .`
+    .slice(0, 8);
+
+  document.getElementById('rank-setores').innerHTML = setores.map(([name, val], i) => `
+    <div class="rank-row">
+      <div class="rank-pos">${String(i + 1).padStart(2, '0')}</div>
+      <div class="rank-name" title="${name}">${name}</div>
+      <div class="rank-val">${val}</div>
+    </div>
+  `).join('');
+}
 
 
 /* =============================
