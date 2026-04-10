@@ -1137,15 +1137,64 @@ function renderRanking(elId, rows) {
 }
 
 function atualizarRankings() {
-  const ef = dados.efetivo || [];
-  document.getElementById('rank-func-sub').textContent = ef.length ? `Base: ${ef.length} efetivo(s)` : 'Sem dados';
-  document.getElementById('rank-setor-sub').textContent = ef.length ? `Base: ${ef.length} efetivo(s)` : 'Sem dados';
+  const rows = getRows();
 
-  const topFun = buildTopCounts(ef, r => r.funcao, 12, 'Função não informada');
-  const topSet = buildTopCounts(ef, r => r.setor, 12, 'Setor não informado');
-  renderRanking('rank-funcoes', topFun);
-  renderRanking('rank-setores', topSet);
-}
+  // Totais (base geral do sistema)
+  const totalEf  = (dados.efetivo || []).length;
+  const totalPj  = (dados.pj || []).length;
+  const totalTerc = (dados.terceiros || []).length;
+  const totalMob = (dados.mob || []).length;
+  const totalGeral = totalEf + totalPj + totalTerc + totalMob;
+
+  // Ranking (mantém só Efetivo/PJ, porque são os que têm Função/Setor consistentes)
+  const baseRank = rows.filter(r => (r._t === 'efetivo' || r._t === 'pj'));
+
+  // Atualiza subtítulos acima dos rankings
+  const comp = `Efetivos: ${totalEf} | PJ: ${totalPj} | Terceiros: ${totalTerc} | Mobilização: ${totalMob}`;
+  const sub = totalGeral ? `Base total: ${totalGeral} registro(s) — ${comp}` : 'Sem dados';
+
+  const elFuncSub = document.getElementById('rank-func-sub');
+  const elSetSub = document.getElementById('rank-setor-sub');
+  if (elFuncSub) elFuncSub.textContent = sub;
+  if (elSetSub) elSetSub.textContent = sub;
+
+  // Se não tem base para ranking, limpa
+  if (!baseRank.length) {
+    document.getElementById('rank-funcoes').innerHTML = '<div style="padding:10px;color:var(--text2);font-weight:800">Sem dados para ranking.</div>';
+    document.getElementById('rank-setores').innerHTML = '<div style="padding:10px;color:var(--text2);font-weight:800">Sem dados para ranking.</div>';
+    return;
+  }
+
+  // ===== Ranking de Funções =====
+  const funcCounts = {};
+  baseRank.forEach(r => {
+    const k = (r.funcao || r.servico || '—').toString().trim() || '—';
+    funcCounts[k] = (funcCounts[k] || 0) + 1;
+  });
+
+  const funcs = Object.entries(funcCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8);
+
+  document.getElementById('rank-funcoes').innerHTML = funcs.map(([name, val], i) => `
+    <div class="rank-row">
+      <div class="rank-pos">${String(i + 1).padStart(2, '0')}</div>
+      <div class="rank-name" title="${name}">${name}</div>
+      <div class="rank-val">${val}</div>
+    </div>
+  `).join('');
+
+  // ===== Ranking de Setores =====
+  const setorCounts = {};
+  baseRank.forEach(r => {
+    const k = (r.setor || '—').toString().trim() || '—';
+    setorCounts[k] = (setorCounts[k] || 0) + 1;
+  });
+
+  const setores = Object.entries(setorCounts)
+    .sort((a, b) => b[1] - a[1])
+    .`
+
 
 /* =============================
    AUTH / MODALS
