@@ -142,20 +142,21 @@
     .filter-dot{width:8px;height:8px;border-radius:50%}
     .toolbar-right{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
 
-    .table-wrap{
-      width: 100%;
-      max-width: none;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-    }
+.table-wrap{
+  width: 100%;
+  max-width: none;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
 
-    table{
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      min-width: 1380px;
-      font-size: 12px;
-    }
+table{
+  width: max-content;     
+  min-width: 100%;        
+  border-collapse: collapse;
+  table-layout: auto;     
+  font-size: 12px;
+}
 
     th, td{
       padding: 10px 14px;
