@@ -668,7 +668,7 @@ function unlockView() {
   const modal = document.getElementById('modal-view-pass');
   const app = document.getElementById('app-content');
 
-  const p = (input?.value || '').trim();
+const p = (input && input.value || '').trim();
   if (p !== SENHA) {
     if (err) err.style.display = 'block';
     return;
@@ -687,9 +687,12 @@ function unlockView() {
 
 document.addEventListener('DOMContentLoaded', () => {
   lockView();
-  document.getElementById('view-pass')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') unlockView();
-  });
+  const viewPassInput = document.getElementById('view-pass');
+  if (viewPassInput) {
+    viewPassInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') unlockView();
+    });
+  }
 });
 /* =============================
    STATE
