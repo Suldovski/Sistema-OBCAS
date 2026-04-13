@@ -1003,9 +1003,9 @@ const FILTER_META = {
   pj:   { label: 'PJ',                 color: '#0ea5e9' },
   adm:  { label: 'ADM',                color: 'var(--purple)' },
   op:   { label: 'Operacional',        color: 'var(--green)' },
-  terc: { label: 'Terceiros',          color: 'var(--orange)' },
-  mob:  { label: 'Mobilização',        color: 'var(--pink)' },
   altfunc: { label: 'Aguardando alteração de função', color: '#f59e0b' },
+  mob:  { label: 'Mobilização',        color: 'var(--pink)' },
+  terc: { label: 'Terceiros',          color: 'var(--orange)' },
 };
 
 function setFilter(f, el) {
@@ -1039,22 +1039,25 @@ function getRows() {
     case 'pj':   rows = dados.pj.filter(m).map(r => ({...r, _t:'pj'})); break;
     case 'adm':  rows = dados.efetivo.filter(isAdm).filter(m).map(r => ({...r, _t:'efetivo'})); break;
     case 'op':   rows = dados.efetivo.filter(isOp).filter(m).map(r => ({...r, _t:'efetivo'})); break;
-    case 'terc': rows = dados.terceiros.filter(m).map(r => ({...r, _t:'terceiro'})); break;
-    case 'mob':  rows = dados.mob.filter(m).map(r => ({...r, _t:'mob'})); break;
     case 'altfunc':
+    case 'mob':  rows = dados.mob.filter(m).map(r => ({...r, _t:'mob'})); break;
+    case 'terc': rows = dados.terceiros.filter(m).map(r => ({...r, _t:'terceiro'})); break;
+
       rows = [
         ...dados.efetivo.filter(isAltFunc).filter(m).map(r => ({...r, _t:'efetivo'})),
         ...dados.pj.filter(isAltFunc).filter(m).map(r => ({...r, _t:'pj'})),
-        ...dados.terceiros.filter(isAltFunc).filter(m).map(r => ({...r, _t:'terceiro'})),
         ...dados.mob.filter(isAltFunc).filter(m).map(r => ({...r, _t:'mob'}))
+       ...dados.terceiros.filter(isAltFunc).filter(m).map(r => ({...r, _t:'terceiro'})),
+
       ];
       break;
     default:
       rows = [
         ...dados.efetivo.filter(m).map(r => ({...r, _t:'efetivo'})),
         ...dados.pj.filter(m).map(r => ({...r, _t:'pj'})),
-        ...dados.terceiros.filter(m).map(r => ({...r, _t:'terceiro'})),
         ...dados.mob.filter(m).map(r => ({...r, _t:'mob'}))
+        ...dados.terceiros.filter(m).map(r => ({...r, _t:'terceiro'})),
+
       ];
   }
 
