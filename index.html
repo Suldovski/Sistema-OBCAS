@@ -411,7 +411,8 @@ table{
 
   <div class="header">
     <div class="logo-area">
-      <img class="logo-img" src="logo.jpeg" alt="Bucagrans" onerror="this.style.display='none'" />      <div class="logo-divider"></div>
+      <img class="logo-img" src="logo.jpeg" alt="Bucagrans" onerror="this.style.display='none'" />     
+      <div class="logo-divider"></div>
       <div class="logo-text">
         <div class="logo-title">BUCAGRANS CONSTRUTORA DE OBRAS SA</div>
         <div class="logo-sub">OBCAS - UHE Castro Alves</div>
@@ -1038,8 +1039,8 @@ switch (activeFilter) {
   case 'pj':   rows = dados.pj.filter(m).map(r => ({...r, _t:'pj'})); break;
   case 'adm':  rows = dados.efetivo.filter(isAdm).filter(m).map(r => ({...r, _t:'efetivo'})); break;
   case 'op':   rows = dados.efetivo.filter(isOp).filter(m).map(r => ({...r, _t:'efetivo'})); break;
- case 'altfunc':
-  rows = [
+   case 'altfunc':
+    rows = [
     ...dados.efetivo.filter(isAltFunc).filter(m).map(r => ({...r, _t:'efetivo'})),
     ...dados.pj.filter(isAltFunc).filter(m).map(r => ({...r, _t:'pj'})),
     ...dados.mob.filter(isAltFunc).filter(m).map(r => ({...r, _t:'mob'})),
