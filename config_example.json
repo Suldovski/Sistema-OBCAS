@@ -1,0 +1,34 @@
+{
+  "base_url": "https://webservices.esocial.gov.br",
+  "cert": {
+    "type": "pfx",
+    "pfx_path": "/caminho/para/certificado.pfx",
+    "pfx_password": "SENHA_DO_CERTIFICADO",
+    "cert_path": "/caminho/para/certificado.pem",
+    "key_path": "/caminho/para/chave.key"
+  },
+  "endpoints": {
+    "auth": "/autenticacao",
+    "aso": "/saude/aso"
+  },
+  "request": {
+    "verify_ssl": true,
+    "headers": {
+      "Accept": "application/json"
+    },
+    "auth_method": "GET",
+    "aso_method": "GET",
+    "auth_payload": {},
+    "aso_params": {
+      "situacao": "ATIVO"
+    }
+  },
+  "mapping": {
+    "records_path": "data.asos",
+    "date_keys": [
+      "vencimento_aso",
+      "dataVencimentoAso",
+      "vencimento"
+    ]
+  }
+}
