@@ -1727,6 +1727,7 @@ function processarArquivo(file){
       const idxSALH = hRow.indexOf('SALARIOHORA');
       const idxSALM = hRow.indexOf('SALARIOMENSAL');
       const idxSIT  = hRow.indexOf('SITUACAO');
+      const idxASO  = ['VENCIMENTOASO','VENCASO','ASO'].map(c => hRow.indexOf(c)).find(i => i >= 0) ?? -1;
 
       if (idxRE < 0 || idxNOME < 0){ fbk.style.color='var(--red)'; fbk.textContent='Não encontrei colunas RE e NOME.'; return; }
 
@@ -1745,6 +1746,7 @@ function processarArquivo(file){
         const salh = (idxSALH>=0) ? fmtMoney(row[idxSALH]) : '';
         const salm = (idxSALM>=0) ? fmtMoney(row[idxSALM]) : '';
         const situacao = (idxSIT>=0) ? (row[idxSIT]||'').toString().trim() : '';
+        const aso = (idxASO>=0) ? parseData(row[idxASO]) : '';
 
         const rec = ensureId({
           re, nome, funcao,
@@ -1755,7 +1757,7 @@ function processarArquivo(file){
           cbo,
           exp30: exp30FromAdmissao(adm),
           exp60: exp60FromAdmissao(adm),
-          aso: '',
+          aso,
           salh, salm
         });
 
@@ -1797,10 +1799,10 @@ function processarArquivo(file){
 function baixarModelo(){
   const wb = XLSX.utils.book_new();
   const data = [
-    ['RE','NOME','DATA NASC','CBO','DATA DE ADMISSÃO','FUNÇÃO','SALARIO/HORA','SALARIO/MENSAL','SITUACAO'],
-    ['4784','ADALTON DE OLIVEIRA','1990-05-20','7170-20','2026-02-14','AJUDANTE GERAL', 12.34, 2500, 'ATIVO'],
-    ['PJ-8899','JOAO DA SILVA','1985-01-10','1421-05','2026-03-01','SUPERVISOR ADMINISTRATIVO', 30, 6000, 'ATIVO'],
-    ['ASO-0001','MARIA TESTE','1999-11-02','7231-10','2026-03-01','MARTELETEIRO II', '', '', 'AGUARDA EXAME']
+    ['RE','NOME','DATA NASC','CBO','DATA DE ADMISSÃO','FUNÇÃO','VENCIMENTO ASO','SALARIO/HORA','SALARIO/MENSAL','SITUACAO'],
+    ['4784','ADALTON DE OLIVEIRA','1990-05-20','7170-20','2026-02-14','AJUDANTE GERAL','2027-02-14', 12.34, 2500, 'ATIVO'],
+    ['PJ-8899','JOAO DA SILVA','1985-01-10','1421-05','2026-03-01','SUPERVISOR ADMINISTRATIVO','2027-03-01', 30, 6000, 'ATIVO'],
+    ['ASO-0001','MARIA TESTE','1999-11-02','7231-10','2026-03-01','MARTELETEIRO II','', '', '', 'AGUARDA EXAME']
   ];
   const ws = XLSX.utils.aoa_to_sheet(data);
   XLSX.utils.book_append_sheet(wb, ws, 'Efetivo');
