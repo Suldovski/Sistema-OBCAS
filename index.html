@@ -428,38 +428,38 @@ table{
 
   <div class="main">
     <div class="stats">
-      <div class="stat-card active" data-filter="all" onclick="setFilter('all',this)">
-        <div class="stat-label">Total Geral</div>
-        <div class="stat-val" id="stat-total">0</div>
-      </div>
-      <div class="stat-card" data-filter="ef" onclick="setFilter('ef',this)">
-        <div class="stat-label">Efetivos</div>
-        <div class="stat-val" id="stat-ef">0</div>
-      </div>
-      <div class="stat-card" data-filter="pj" onclick="setFilter('pj',this)">
-        <div class="stat-label">PJ</div>
-        <div class="stat-val" id="stat-pj">0</div>
-      </div>
-      <div class="stat-card" data-filter="adm" onclick="setFilter('adm',this)">
-        <div class="stat-label">ADM</div>
-        <div class="stat-val" id="stat-adm">0</div>
-      </div>
-      <div class="stat-card" data-filter="op" onclick="setFilter('op',this)">
-        <div class="stat-label">Operacional</div>
-        <div class="stat-val" id="stat-op">0</div>
-      </div>
-      <div class="stat-card" data-filter="terc" onclick="setFilter('terc',this)">
-        <div class="stat-label">Terceiros</div>
-        <div class="stat-val" id="stat-terc">0</div>
-      </div>
-      <div class="stat-card" data-filter="mob" onclick="setFilter('mob',this)">
-        <div class="stat-label">Mobilização</div>
-        <div class="stat-val" id="stat-mob">0</div>
-      </div>
-      <div class="stat-card" data-filter="altfunc" onclick="setFilter('altfunc',this)">
-        <div class="stat-label">Alteração de Função</div>
-        <div class="stat-val" id="stat-altfunc">0</div>
-      </div>
+<div class="stat-card active" data-filter="all" onclick="setFilter('all',this)">
+  <div class="stat-label">Total Geral</div>
+  <div class="stat-val" id="stat-total">0</div>
+</div>
+<div class="stat-card" data-filter="ef" onclick="setFilter('ef',this)">
+  <div class="stat-label">Efetivos</div>
+  <div class="stat-val" id="stat-ef">0</div>
+</div>
+<div class="stat-card" data-filter="pj" onclick="setFilter('pj',this)">
+  <div class="stat-label">PJ</div>
+  <div class="stat-val" id="stat-pj">0</div>
+</div>
+<div class="stat-card" data-filter="op" onclick="setFilter('op',this)">
+  <div class="stat-label">Operacional</div>
+  <div class="stat-val" id="stat-op">0</div>
+</div>
+<div class="stat-card" data-filter="adm" onclick="setFilter('adm',this)">
+  <div class="stat-label">ADM</div>
+  <div class="stat-val" id="stat-adm">0</div>
+</div>
+<div class="stat-card" data-filter="mob" onclick="setFilter('mob',this)">
+  <div class="stat-label">Mobilização</div>
+  <div class="stat-val" id="stat-mob">0</div>
+</div>
+<div class="stat-card" data-filter="altfunc" onclick="setFilter('altfunc',this)">
+  <div class="stat-label">Alteração de Função</div>
+  <div class="stat-val" id="stat-altfunc">0</div>
+</div>
+<div class="stat-card" data-filter="terc" onclick="setFilter('terc',this)">
+  <div class="stat-label">Terceiros</div>
+  <div class="stat-val" id="stat-terc">0</div>
+</div>
     </div>
 
     <div class="card">
@@ -1001,10 +1001,10 @@ const FILTER_META = {
   all:  { label: 'Todos os registros', color: 'var(--blue)' },
   ef:   { label: 'Efetivos',           color: 'var(--teal)' },
   pj:   { label: 'PJ',                 color: '#0ea5e9' },
-  adm:  { label: 'ADM',                color: 'var(--purple)' },
   op:   { label: 'Operacional',        color: 'var(--green)' },
-  altfunc: { label: 'Aguardando alteração de função', color: '#f59e0b' },
+  adm:  { label: 'ADM',                color: 'var(--purple)' },
   mob:  { label: 'Mobilização',        color: 'var(--pink)' },
+  altfunc: { label: 'Aguardando alteração de função', color: '#f59e0b' },
   terc: { label: 'Terceiros',          color: 'var(--orange)' },
 };
 
@@ -1037,18 +1037,18 @@ let rows;
 switch (activeFilter) {
   case 'ef':   rows = dados.efetivo.filter(m).map(r => ({...r, _t:'efetivo'})); break;
   case 'pj':   rows = dados.pj.filter(m).map(r => ({...r, _t:'pj'})); break;
-  case 'adm':  rows = dados.efetivo.filter(isAdm).filter(m).map(r => ({...r, _t:'efetivo'})); break;
   case 'op':   rows = dados.efetivo.filter(isOp).filter(m).map(r => ({...r, _t:'efetivo'})); break;
-   case 'altfunc':
+  case 'adm':  rows = dados.efetivo.filter(isAdm).filter(m).map(r => ({...r, _t:'efetivo'})); break;
+  case 'mob':  rows = dados.mob.filter(m).map(r => ({...r, _t:'mob'})); break;
+  case 'altfunc':
     rows = [
-    ...dados.efetivo.filter(isAltFunc).filter(m).map(r => ({...r, _t:'efetivo'})),
-    ...dados.pj.filter(isAltFunc).filter(m).map(r => ({...r, _t:'pj'})),
-    ...dados.mob.filter(isAltFunc).filter(m).map(r => ({...r, _t:'mob'})),
-    ...dados.terceiros.filter(isAltFunc).filter(m).map(r => ({...r, _t:'terceiro'})),
-  ];
-  break;
-case 'mob':  rows = dados.mob.filter(m).map(r => ({...r, _t:'mob'})); break;
-case 'terc': rows = dados.terceiros.filter(m).map(r => ({...r, _t:'terceiro'})); break;
+      ...dados.efetivo.filter(isAltFunc).filter(m).map(r => ({...r, _t:'efetivo'})),
+      ...dados.pj.filter(isAltFunc).filter(m).map(r => ({...r, _t:'pj'})),
+      ...dados.mob.filter(isAltFunc).filter(m).map(r => ({...r, _t:'mob'})),
+      ...dados.terceiros.filter(isAltFunc).filter(m).map(r => ({...r, _t:'terceiro'})),
+    ];
+    break;
+  case 'terc': rows = dados.terceiros.filter(m).map(r => ({...r, _t:'terceiro'})); break;
   default:
     rows = [
       ...dados.efetivo.filter(m).map(r => ({...r, _t:'efetivo'})),
