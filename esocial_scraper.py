@@ -106,8 +106,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_config(path: Path) -> Config:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    cert = payload.get("cert", {})
+payload = json.loads(path.read_text(encoding="utf-8-sig"))    
+cert = payload.get("cert", {})
     endpoints = payload.get("endpoints", {})
     request_cfg = payload.get("request", {})
     mapping = payload.get("mapping", {})
