@@ -2,8 +2,8 @@
   "base_url": "https://webservices.esocial.gov.br",
   "cert": {
     "type": "pfx",
-    "pfx_path": "COLOQUE_AQUI_O_CAMINHO_DO_SEU_CERTIFICADO.pfx",
-    "pfx_password": "COLOQUE_AQUI_A_SENHA_DO_CERTIFICADO"
+    "pfx_path": "${ESOCIAL_PFX_PATH}",
+    "pfx_password": "${ESOCIAL_PFX_PASSWORD}"
   },
   "endpoints": {
     "auth": "/api/v1/auth",
@@ -13,6 +13,13 @@
     "verify_ssl": true,
     "auth_method": "POST",
     "aso_method": "GET",
+    "auth_payload": {
+      "cnpj": "${ESOCIAL_CNPJ}"
+    },
+    "aso_params": {
+      "cnpj": "${ESOCIAL_CNPJ}",
+      "limite": 226
+    },
     "headers": {
       "Accept": "application/json",
       "Content-Type": "application/json"

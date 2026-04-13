@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Extrator de vencimentos ASO via API eSocial com certificado digital.
+Suporta placeholders de ambiente no config no formato ${NOME_DA_VARIAVEL}.
 """
 
 from __future__ import annotations
@@ -8,6 +9,8 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
+import re
 from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -28,6 +31,8 @@ DEFAULT_DATE_KEYS = [
     "dataVencimento",
     "vencimento",
 ]
+
+ENV_VALUE_PATTERN = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
 
 
 @dataclass
@@ -60,6 +65,37 @@ class Config:
     date_key_candidates: list[str]
 
 
+def resolve_env_reference(raw_value: Any) -> str:
+    value = str(raw_value or "").strip()
+    match = ENV_VALUE_PATTERN.match(value)
+    if not match:
+        return value
+    return os.getenv(match.group(1), "").strip()
+
+
+def resolve_env_in_object(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {k: resolve_env_in_object(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [resolve_env_in_object(v) for v in value]
+    if isinstance(value, str):
+        return resolve_env_reference(value)
+    return value
+
+
+def parse_bool(value: Any, default: bool = True) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return default
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Extrai vencimentos ASO do eSocial por certificado digital")
     parser.add_argument("--config", default="config.json", help="Arquivo JSON de configuração")
@@ -77,22 +113,22 @@ def load_config(path: Path) -> Config:
     mapping = payload.get("mapping", {})
 
     return Config(
-        base_url=str(payload.get("base_url", "")).rstrip("/"),
-        auth_endpoint=str(endpoints.get("auth", "")).strip(),
-        aso_endpoint=str(endpoints.get("aso", "")).strip(),
-        cert_type=str(cert.get("type", "pfx")).strip().lower(),
-        pfx_path=str(cert.get("pfx_path", "")).strip(),
-        pfx_password=str(cert.get("pfx_password", "")).strip(),
-        cert_path=str(cert.get("cert_path", "")).strip(),
-        key_path=str(cert.get("key_path", "")).strip(),
-        verify_ssl=bool(request_cfg.get("verify_ssl", True)),
-        headers={str(k): str(v) for k, v in dict(request_cfg.get("headers", {})).items()},
-        auth_method=str(request_cfg.get("auth_method", "GET")).upper(),
-        aso_method=str(request_cfg.get("aso_method", "GET")).upper(),
-        auth_payload=dict(request_cfg.get("auth_payload", {})),
-        aso_params=dict(request_cfg.get("aso_params", {})),
-        records_path=str(mapping.get("records_path", "")).strip(),
-        date_key_candidates=[str(x) for x in mapping.get("date_keys", DEFAULT_DATE_KEYS)],
+        base_url=resolve_env_reference(payload.get("base_url", "")).rstrip("/"),
+        auth_endpoint=resolve_env_reference(endpoints.get("auth", "")),
+        aso_endpoint=resolve_env_reference(endpoints.get("aso", "")),
+        cert_type=resolve_env_reference(cert.get("type", "pfx")).lower(),
+        pfx_path=resolve_env_reference(cert.get("pfx_path", "")),
+        pfx_password=resolve_env_reference(cert.get("pfx_password", "")),
+        cert_path=resolve_env_reference(cert.get("cert_path", "")),
+        key_path=resolve_env_reference(cert.get("key_path", "")),
+        verify_ssl=parse_bool(resolve_env_in_object(request_cfg.get("verify_ssl", True)), default=True),
+        headers={str(k): str(v) for k, v in dict(resolve_env_in_object(request_cfg.get("headers", {}))).items()},
+        auth_method=resolve_env_reference(request_cfg.get("auth_method", "GET")).upper(),
+        aso_method=resolve_env_reference(request_cfg.get("aso_method", "GET")).upper(),
+        auth_payload=dict(resolve_env_in_object(request_cfg.get("auth_payload", {}))),
+        aso_params=dict(resolve_env_in_object(request_cfg.get("aso_params", {}))),
+        records_path=resolve_env_reference(mapping.get("records_path", "")),
+        date_key_candidates=[str(resolve_env_in_object(x)) for x in mapping.get("date_keys", DEFAULT_DATE_KEYS)],
     )
 
 
