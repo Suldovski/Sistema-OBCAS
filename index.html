@@ -1683,69 +1683,48 @@ function processarArquivo(file){
         const salm = (idxSALM>=0) ? fmtMoney(row[idxSALM]) : '';
         const situacao = (idxSIT>=0) ? (row[idxSIT]||'').toString().trim() : '';
 
-        if (isASOInRe(re) || isAguardaExame(situacao)) {
-          const mobRec = ensureId({ nome, movTipo:'Entrada', funcao, setor:setorFromFuncao(funcao), salh, salm });
-          if (!existsMob(mobRec.nome, mobRec.movTipo)) dados.mob.push(mobRec);
-          movedToMob++;
-          return;
-        }
-
         const rec = ensureId({
           re, nome, funcao,
           setor: setorFromFuncao(funcao),
-          admissao: adm,  
-          nasc,       
-          cbo,        
+          admissao: adm,
+          nasc,
+          cbo,
           exp30: exp30FromAdmissao(adm),
           exp60: exp60FromAdmissao(adm),
           aso: '',
           salh, salm
         });
 
-        if (isPJ(re)) {
-          if (!existsEfOrPj(dados.pj, rec)) importBuffer.push({ ...rec, _dest:'pj' });
-        } else {
-          if (!existsEfOrPj(dados.efetivo, rec)) importBuffer.push({ ...rec, _dest:'ef' });
+        if (isASOInRe(re) || isAguardaExame(situacao)) {
+          importBuffer.push({ ...rec, movTipo:'Entrada', tipo:'mob' });
+          movedToMob++;
+          return;
         }
+
+        importBuffer.push({ ...rec, tipo: isPJ(re) ? 'pj' : 'efetivo' });
       });
 
       if (!importBuffer.length && !movedToMob){
         fbk.style.color='var(--red)';
-        fbk.textContent='Nenhum novo registro.';
+        fbk.textContent='Nenhum registro válido para importar.';
         return;
       }
 
       document.getElementById('import-preview').innerHTML = `
         <div style="margin-top:10px;font-size:12px;color:var(--text2);font-weight:800">
-          Novos para importar: <strong>${importBuffer.length}</strong> | Enviados para mobilização: <strong>${movedToMob}</strong>
+          Registros para importar: <strong>${importBuffer.length}</strong> | Classificados para mobilização: <strong>${movedToMob}</strong>
         </div>
       `;
 
       fbk.style.color='var(--green)';
       fbk.textContent='';
       document.getElementById('btn-confirmar-import').style.display = importBuffer.length ? 'inline-flex' : 'none';
-
-      renderTabela();
-      salvarRemoto('import-parse').catch(console.error);
     } catch(err){
       fbk.style.color='var(--red)';
       fbk.textContent='Erro ao ler: ' + err.message;
     }
   };
   reader.readAsArrayBuffer(file);
-}
-
-function confirmarImport(){
-  if (!importBuffer.length) return;
-  importBuffer.forEach(r => {
-    const dest = r._dest; delete r._dest;
-    if (dest==='pj') dados.pj.push(r);
-    else dados.efetivo.push(r);
-  });
-  importBuffer = [];
-  renderTabela();
-  closeModal('modal-import');
-  salvarRemoto('import-confirm').catch(console.error);
 }
 
 /* =============================
@@ -1778,8 +1757,10 @@ function baixarModelo(){
  * Retorna { categoria, index, registro } ou null
  */
 function findDuplicateInAllCategories(rec) {
+  const recTipo = rec.tipo === 'terceiro' ? 'terceiros' : rec.tipo;
   const reKey = normRe(rec.re);
   const naKey = keyNomeAdm(rec.nome, rec.admissao);
+  const noKey = normKey(rec.nome);
   
   const allCategorias = [
     { nome: 'efetivo', data: dados.efetivo },
@@ -1790,20 +1771,26 @@ function findDuplicateInAllCategories(rec) {
   
   for (let cat of allCategorias) {
     const idx = cat.data.findIndex(x => {
-      if (rec.tipo === 'terceiro') {
+      const xRe = normRe(x.re);
+      const xNA = keyNomeAdm(x.nome, x.admissao);
+      const xNome = normKey(x.nome);
+
+      if (recTipo === 'terceiros' && cat.nome === 'terceiros') {
         // Para terceiros: comparar por nome + empresa
-        return normKey(x.nome) === normKey(rec.nome) && 
+        return xNome === noKey &&
                normKey(x.empresa) === normKey(rec.empresa);
-      } else if (rec.tipo === 'mob') {
+      } else if (recTipo === 'mob' && cat.nome === 'mob') {
         // Para mob: comparar por nome + tipo de movimentação
-        return normKey(x.nome) === normKey(rec.nome) && 
+        return xNome === noKey &&
                normKey(x.movTipo) === normKey(rec.movTipo);
-      } else {
-        // Para efetivo/PJ: RE ou Nome+Admissão
-        const xRe = normRe(x.re);
-        const xNA = keyNomeAdm(x.nome, x.admissao);
-        return (reKey && xRe && xRe === reKey) || (naKey && xNA === naKey);
       }
+
+      if ((reKey && xRe && xRe === reKey) || (naKey && xNA && xNA === naKey)) return true;
+
+      // fallback para permitir transferência entre mobilização e outras categorias por nome
+      if (noKey && xNome && noKey === xNome && (recTipo === 'mob' || cat.nome === 'mob')) return true;
+
+      return false;
     });
     
     if (idx >= 0) {
@@ -1825,7 +1812,7 @@ function updateRegistroExistente(registroExistente, novosDados) {
   const camposAtualizaveis = ['nome', 're', 'funcao', 'setor', 'admissao', 'salh', 'salm', 'aso', 'cbo', 'nasc'];
   
   for (let campo of camposAtualizaveis) {
-    if (campo in novosDados && novosDados[campo]) {
+    if (campo in novosDados && novosDados[campo] !== '' && novosDados[campo] !== null && novosDados[campo] !== undefined) {
       if (registroExistente[campo] !== novosDados[campo]) {
         registroExistente[campo] = novosDados[campo];
         mudouAlgo = true;
@@ -1848,6 +1835,13 @@ function updateRegistroExistente(registroExistente, novosDados) {
     registroExistente.servico = novosDados.servico;
     mudouAlgo = true;
   }
+
+  if (registroExistente.admissao) {
+    const n30 = exp30FromAdmissao(registroExistente.admissao);
+    const n60 = exp60FromAdmissao(registroExistente.admissao);
+    if (registroExistente.exp30 !== n30) { registroExistente.exp30 = n30; mudouAlgo = true; }
+    if (registroExistente.exp60 !== n60) { registroExistente.exp60 = n60; mudouAlgo = true; }
+  }
   
   return mudouAlgo;
 }
@@ -1857,9 +1851,14 @@ function updateRegistroExistente(registroExistente, novosDados) {
  * Se encontrar duplicado, atualiza; se não, adiciona novo
  */
 function adicionarOuAtualizar(categoria, novoRegistro) {
-  novoRegistro.tipo = categoria; // marca tipo para busca
+  const registroNovo = { ...novoRegistro };
+  delete registroNovo._dest;
+  delete registroNovo.tipo;
+  ensureId(registroNovo);
+
+  const recBusca = { ...registroNovo, tipo: categoria };
   
-  const duplicado = findDuplicateInAllCategories(novoRegistro);
+  const duplicado = findDuplicateInAllCategories(recBusca);
   
   if (duplicado) {
     // Encontrou similar em alguma categoria
@@ -1869,21 +1868,21 @@ function adicionarOuAtualizar(categoria, novoRegistro) {
     if (catExistente !== categoria) {
       // Remove de categoria antiga
       dados[catExistente].splice(index, 1);
-      // Atualiza campos
-      updateRegistroExistente(novoRegistro, regExistente);
-      ensureId(novoRegistro);
+      const registroTransferido = { ...regExistente };
+      updateRegistroExistente(registroTransferido, registroNovo);
+      registroTransferido._id = regExistente._id || registroNovo._id;
+      ensureId(registroTransferido);
       // Adiciona em categoria nova
-      dados[categoria].push(novoRegistro);
+      dados[categoria].push(registroTransferido);
       return { acao: 'transferido', categoria: catExistente, novCategoria: categoria };
     } else {
       // Mesma categoria: só atualiza
-      const mudouAlgo = updateRegistroExistente(regExistente, novoRegistro);
+      const mudouAlgo = updateRegistroExistente(regExistente, registroNovo);
       return { acao: 'atualizado', mudou: mudouAlgo };
     }
   } else {
     // Novo registro
-    ensureId(novoRegistro);
-    dados[categoria].push(novoRegistro);
+    dados[categoria].push(registroNovo);
     return { acao: 'adicionado' };
   }
 }
@@ -1914,16 +1913,18 @@ async function confirmarImport() {
         resultado = adicionarOuAtualizar('efetivo', rec);
       } else if (rec.tipo === 'pj') {
         resultado = adicionarOuAtualizar('pj', rec);
-      } else if (rec.tipo === 'terceiro') {
+      } else if (rec.tipo === 'terceiro' || rec.tipo === 'terceiros') {
         resultado = adicionarOuAtualizar('terceiros', rec);
       } else if (rec.tipo === 'mob') {
         resultado = adicionarOuAtualizar('mob', rec);
       }
       
+      if (!resultado) continue;
+
       // Contar resultado
       if (resultado.acao === 'adicionado') stats.adicionados++;
       else if (resultado.acao === 'atualizado') {
-        if (resultado.mudou) stats.atualizados++;
+        stats.atualizados++;
       }
       else if (resultado.acao === 'transferido') {
         stats.transferidos++;
