@@ -91,7 +91,7 @@
     .btn-ghost{background:transparent;border-color:transparent;color:var(--text2)}
     .btn-ghost:hover{background:var(--surface2);border-color:var(--border);color:var(--text)}
 
-    .stats{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+    .stats{ display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
     .stat-card{
       background:var(--surface);border:1px solid var(--border);
       border-radius:var(--radius-lg);padding:16px 18px;cursor:pointer;
@@ -109,6 +109,7 @@
     .stat-card[data-filter="op"]{--card-accent:var(--green)}
     .stat-card[data-filter="terc"]{--card-accent:var(--orange)}
     .stat-card[data-filter="mob"]{--card-accent:var(--pink)}
+    .stat-card[data-filter="altfunc"]{--card-accent:#f59e0b}
     .stat-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:.06em;font-weight:900;margin-bottom:6px}
     .stat-val{font-size:34px;font-weight:900;color:var(--text);line-height:1}
 
@@ -224,6 +225,8 @@ table{
     .badge-terc{background:#fff4d6;color:#8a5c00;border-color:#fde68a}
     .badge-mob-e{background:#eafff0;color:#166534;border-color:#bbf7d0}
     .badge-mob-s{background:#ffe5e5;color:#b42318;border-color:#fda29b}
+    .badge-func-change{background:#fff7ed;color:#9a3412;border-color:#fdba74}
+    tr.row-funcao-change td{background:#fffbeb}
 
     .empty{text-align:center;padding:60px 20px;color:#8c959f;font-size:13px;display:none}
 
@@ -452,6 +455,10 @@ table{
       <div class="stat-card" data-filter="mob" onclick="setFilter('mob',this)">
         <div class="stat-label">Mobilização</div>
         <div class="stat-val" id="stat-mob">0</div>
+      </div>
+      <div class="stat-card" data-filter="altfunc" onclick="setFilter('altfunc',this)">
+        <div class="stat-label">Alteração Função</div>
+        <div class="stat-val" id="stat-altfunc">0</div>
       </div>
     </div>
 
@@ -835,6 +842,10 @@ function normRe(s) { return normKey(s).replace(/\s+/g,''); }
 function isPJ(re) { return normRe(re).includes('PJ'); }
 function isASOInRe(re) { return normRe(re).includes('ASO'); }
 function isAguardaExame(situacao) { return normKey(situacao).includes('AGUARDA EXAME'); }
+function isAguardaAlteracaoFuncao(situacao) {
+  const key = normKey(situacao);
+  return key.includes('AGUARDA ALTERACAO FUNCAO') || key.includes('AGUARDA ALTERACAO DE FUNCAO');
+}
 
 /* dinheiro */
 function parseMoneyToNumber(v) {
@@ -960,6 +971,7 @@ function migrateData() {
     ensureId(r);
     r.re ??= ''; r.nome ??= ''; r.funcao ??= ''; r.setor ??= '';
     r.admissao ??= ''; r.exp30 ??= ''; r.exp60 ??= ''; r.aso ??= '';
+    r.situacao ??= '';
      r.nasc ??= '';   
     r.cbo ??= ''; 
     r.salh ??= ''; r.salm ??= '';
@@ -971,11 +983,11 @@ function migrateData() {
   };
   dados.efetivo = (dados.efetivo || []).map(fixEf);
   dados.pj = (dados.pj || []).map(fixEf);
-  dados.terceiros = (dados.terceiros || []).map(r => { ensureId(r); r.empresa ??= ''; r.servico ??= ''; return r; });
+  dados.terceiros = (dados.terceiros || []).map(r => { ensureId(r); r.empresa ??= ''; r.servico ??= ''; r.situacao ??= ''; return r; });
   dados.mob = (dados.mob || []).map(r => {
     ensureId(r);
     r.nome ??= ''; r.movTipo ??= 'Entrada';
-    r.funcao ??= ''; r.setor ??= ''; r.salh ??= ''; r.salm ??= '';
+    r.funcao ??= ''; r.setor ??= ''; r.salh ??= ''; r.salm ??= ''; r.situacao ??= '';
     if (r.salh !== '') r.salh = fmtMoney(r.salh);
     if (r.salm !== '') r.salm = fmtMoney(r.salm);
     return r;
@@ -993,6 +1005,7 @@ const FILTER_META = {
   op:   { label: 'Operacional',        color: 'var(--green)' },
   terc: { label: 'Terceiros',          color: 'var(--orange)' },
   mob:  { label: 'Mobilização',        color: 'var(--pink)' },
+  altfunc: { label: 'Aguardando alteração de função', color: '#f59e0b' },
 };
 
 function setFilter(f, el) {
@@ -1011,12 +1024,14 @@ function getRows() {
     || (r.nome || '').toLowerCase().includes(q)
     || (r.re || '').toLowerCase().includes(q)
     || (r.funcao || '').toLowerCase().includes(q)
+    || (r.situacao || '').toLowerCase().includes(q)
     || (r.servico || '').toLowerCase().includes(q)
     || (r.empresa || '').toLowerCase().includes(q)
     || (r.setor || '').toLowerCase().includes(q);
 
   const isAdm = r => (r.setor || '').trim().toLowerCase() === 'adm';
   const isOp  = r => (r.setor || '').trim().toLowerCase() === 'operacional';
+  const isAltFunc = r => isAguardaAlteracaoFuncao(r.situacao);
 
   let rows;
   switch (activeFilter) {
@@ -1026,6 +1041,14 @@ function getRows() {
     case 'op':   rows = dados.efetivo.filter(isOp).filter(m).map(r => ({...r, _t:'efetivo'})); break;
     case 'terc': rows = dados.terceiros.filter(m).map(r => ({...r, _t:'terceiro'})); break;
     case 'mob':  rows = dados.mob.filter(m).map(r => ({...r, _t:'mob'})); break;
+    case 'altfunc':
+      rows = [
+        ...dados.efetivo.filter(isAltFunc).filter(m).map(r => ({...r, _t:'efetivo'})),
+        ...dados.pj.filter(isAltFunc).filter(m).map(r => ({...r, _t:'pj'})),
+        ...dados.terceiros.filter(isAltFunc).filter(m).map(r => ({...r, _t:'terceiro'})),
+        ...dados.mob.filter(isAltFunc).filter(m).map(r => ({...r, _t:'mob'}))
+      ];
+      break;
     default:
       rows = [
         ...dados.efetivo.filter(m).map(r => ({...r, _t:'efetivo'})),
@@ -1086,14 +1109,20 @@ function renderTabela() {
   tbody.innerHTML = rows.map(r => {
     const a = actIcons(r._t, r._id);
 
-    let re='—', nome='—', tipo='—', funcao='—', setor='—', adm='—', nasc='—', cbo='—', exp30='—', exp60='—', aso='—', salh='—', salm='—';
+    let re='—', nome='—', tipo='—', funcao='—', funcaoTitle='—', setor='—', adm='—', nasc='—', cbo='—', exp30='—', exp60='—', aso='—', salh='—', salm='—';
     let exp30Cls='', exp60Cls='', asoCls='';
+    let rowClass = '';
 
     if (r._t === 'efetivo' || r._t === 'pj') {
       re = r.re || '—';
       nome = r.nome || '—';
       tipo = (r._t === 'pj') ? 'PJ' : 'Efetivo';
-      funcao = r.funcao || '—';
+      funcaoTitle = r.funcao || '—';
+      funcao = funcaoTitle;
+      if (isAguardaAlteracaoFuncao(r.situacao)) {
+        rowClass = 'row-funcao-change';
+        funcao += ' <span class="badge badge-func-change">Mudança de função</span>';
+      }
       setor = r.setor || '—';
       adm = fmtDate(r.admissao);
       nasc = fmtDate(r.nasc);
@@ -1111,13 +1140,15 @@ function renderTabela() {
     } else if (r._t === 'terceiro') {
       nome = r.nome || '—';
       tipo = `<span class="badge badge-terc">${r.empresa ? r.empresa : 'Terceiro'}</span>`;
-      funcao = r.servico || '—';
+      funcaoTitle = r.servico || '—';
+      funcao = funcaoTitle;
     } else {
       nome = r.nome || '—';
       tipo = (r.movTipo === 'Entrada')
         ? `<span class="badge badge-mob-e">Entrada</span>`
         : `<span class="badge badge-mob-s">Saída</span>`;
-      funcao = r.funcao || '—';
+      funcaoTitle = r.funcao || '—';
+      funcao = funcaoTitle;
       setor = r.setor || '—';
       nasc = fmtDate(r.nasc);
       cbo  = (r.cbo || '—');
@@ -1125,11 +1156,11 @@ function renderTabela() {
       salm = (r.salm || '').toString().trim() || '—';
     }
 
-    return `<tr>
+    return `<tr class="${rowClass}">
       <td class="col-re mono" title="${re}">${re}</td>
       <td class="col-nome name-col" title="${nome}">${nome}</td>
       <td class="col-tipo">${tipo}</td>
-      <td class="col-func" title="${funcao}">${funcao}</td>
+      <td class="col-func" title="${funcaoTitle}">${funcao}</td>
       <td class="col-setor" title="${setor}">${setor}</td>
       <td class="col-adm mono">${adm}</td>
       <td class="col-nasc mono">${nasc}</td>
@@ -1158,6 +1189,9 @@ function atualizarStats() {
   document.getElementById('stat-op').textContent    = dados.efetivo.filter(r => (r.setor || '').trim().toLowerCase() === 'operacional').length;
   document.getElementById('stat-terc').textContent  = dados.terceiros.length;
   document.getElementById('stat-mob').textContent   = dados.mob.length;
+  document.getElementById('stat-altfunc').textContent = [...dados.efetivo, ...dados.pj, ...dados.terceiros, ...dados.mob]
+    .filter(r => isAguardaAlteracaoFuncao(r.situacao))
+    .length;
 }
 
 /* =============================
@@ -1491,6 +1525,11 @@ function salvarRegistro() {
     const funcao = document.getElementById('ef-funcao').value.trim();
     const setorManual = document.getElementById('ef-setor').value.trim();
     const setor = setorManual || setorFromFuncao(funcao);
+    let situacaoAtual = '';
+    if (editingIndex && (editingIndex.tipo === 'efetivo' || editingIndex.tipo === 'pj')) {
+      const { arr, idx } = findById(editingIndex.tipo, editingIndex.id);
+      if (idx >= 0) situacaoAtual = arr[idx].situacao || '';
+    }
 
     const obj = ensureId({
       _id: (editingIndex && (editingIndex.tipo === 'efetivo' || editingIndex.tipo === 'pj')) ? editingIndex.id : undefined,
@@ -1503,7 +1542,8 @@ function salvarRegistro() {
       exp60: exp60FromAdmissao(adm),
       salh,
       salm,
-      aso: document.getElementById('ef-aso').value
+      aso: document.getElementById('ef-aso').value,
+      situacao: situacaoAtual
     });
 
     const destTipo = isPJ(re) ? 'pj' : 'efetivo';
@@ -1689,6 +1729,7 @@ function processarArquivo(file){
           re, nome, funcao,
           setor: setorFromFuncao(funcao),
           admissao: adm,
+          situacao,
           nasc,
           cbo,
           exp30: exp30FromAdmissao(adm),
@@ -1819,6 +1860,14 @@ function updateRegistroExistente(registroExistente, novosDados) {
         registroExistente[campo] = novosDados[campo];
         mudouAlgo = true;
       }
+    }
+  }
+
+  if ('situacao' in novosDados) {
+    const situacaoNova = (novosDados.situacao || '').toString().trim();
+    if ((registroExistente.situacao || '') !== situacaoNova) {
+      registroExistente.situacao = situacaoNova;
+      mudouAlgo = true;
     }
   }
   
