@@ -57,6 +57,7 @@ cp config_example.json config.json
 - `endpoints.auth` e `endpoints.aso`
 - `request.aso_params`
 - `mapping.records_path` e `mapping.date_keys` conforme retorno real da sua API
+- mantenha segredos (senha, caminho do certificado, CNPJ) em variáveis de ambiente e use referências `${NOME_DA_VARIAVEL}` no `config.json`
 
 ## Executar
 
@@ -91,3 +92,9 @@ Esses dados podem ser convertidos para o layout do Sistema-OBCAS com o script j�
 - **`A API retornou conteúdo não JSON`**:
   - confirme endpoint e método HTTP;
   - valide se o endpoint exige parâmetros adicionais.
+
+## Segurança
+
+- Nunca commite `config.json`, certificados ou arquivos de credenciais.
+- O projeto já inclui regras no `.gitignore` para bloquear esses arquivos.
+- Consulte `README_SEGURANÇA.md` e `INSTRUCOES_SETUP.md` antes do primeiro uso.
