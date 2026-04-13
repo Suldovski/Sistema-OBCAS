@@ -360,12 +360,12 @@ table{
 
     @media (max-width:1100px){
       .form-row{grid-template-columns:1fr}
-/* LOCK SCREEN: fundo branco e modal centralizado */
+/* LOCK SCREEN: fundo minimalista branco com sombra elegante */
 #modal-view-pass{
   position: fixed;
   inset: 0;
 
-  background: #ffffff !important;   /* fundo branco */
+  background: #f8fafc !important;   /* branco minimalista */
   backdrop-filter: none !important; /* sem blur */
 
   display: flex !important;
@@ -379,11 +379,13 @@ table{
   content: none !important;
 }
 
-/* garante que o card não “encoste” nas bordas no celular */
+/* garante que o card não "encoste" nas bordas no celular */
 #modal-view-pass > .modal{
   margin: 0 !important;
   width: 360px;
   max-width: 92vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2) !important;
+  border-radius: 16px !important;
 }
     }
   </style>
