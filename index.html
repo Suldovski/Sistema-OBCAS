@@ -1086,7 +1086,7 @@ function renderTabela() {
   tbody.innerHTML = rows.map(r => {
     const a = actIcons(r._t, r._id);
 
-    let re='—', nome='—', tipo='—', funcao='—', setor='—', adm='—', exp30='—', exp60='—', aso='—', salh='—', salm='—';
+    let re='—', nome='—', tipo='—', funcao='—', setor='—', adm='—', nasc='—', cbo='—', exp30='—', exp60='—', aso='—', salh='—', salm='—';
     let exp30Cls='', exp60Cls='', asoCls='';
 
     if (r._t === 'efetivo' || r._t === 'pj') {
@@ -1119,6 +1119,8 @@ function renderTabela() {
         : `<span class="badge badge-mob-s">Saída</span>`;
       funcao = r.funcao || '—';
       setor = r.setor || '—';
+      nasc = fmtDate(r.nasc);
+      cbo  = (r.cbo || '—');
       salh = (r.salh || '').toString().trim() || '—';
       salm = (r.salm || '').toString().trim() || '—';
     }
@@ -1887,6 +1889,49 @@ function adicionarOuAtualizar(categoria, novoRegistro) {
   }
 }
 
+function getPlanilhaSyncKeys(rec) {
+  const keys = [];
+  const reKey = normRe(rec.re);
+  if (reKey) keys.push(`re:${reKey}`);
+
+  const adm = (rec.admissao || '').toString().trim();
+  const nome = normKey(rec.nome);
+  if (nome && adm) keys.push(`na:${nome}|${adm}`);
+
+  return keys;
+}
+
+function isPlanilhaSyncCandidate(rec) {
+  return getPlanilhaSyncKeys(rec).length > 0;
+}
+
+function removerAusentesDaPlanilha(importados) {
+  const keysImportados = new Set();
+
+  (importados || []).forEach(rec => {
+    if (rec.tipo === 'terceiro' || rec.tipo === 'terceiros') return;
+    getPlanilhaSyncKeys(rec).forEach(k => keysImportados.add(k));
+  });
+
+  let removidos = 0;
+  const filtrar = (arr = []) => {
+    const antes = arr.length;
+    const depois = arr.filter(rec => {
+      if (!isPlanilhaSyncCandidate(rec)) return true;
+      const keysRec = getPlanilhaSyncKeys(rec);
+      return keysRec.some(k => keysImportados.has(k));
+    });
+    removidos += (antes - depois.length);
+    return depois;
+  };
+
+  dados.efetivo = filtrar(dados.efetivo);
+  dados.pj = filtrar(dados.pj);
+  dados.mob = filtrar(dados.mob);
+
+  return removidos;
+}
+
 /* =============================
    MODIFICAR: confirmarImport()
 ============================= */
@@ -1901,6 +1946,7 @@ async function confirmarImport() {
     adicionados: 0,
     atualizados: 0,
     transferidos: 0,
+    removidos: 0,
     erros: []
   };
   
@@ -1936,6 +1982,8 @@ async function confirmarImport() {
       stats.erros.push(rec.nome || 'desconhecido');
     }
   }
+
+  stats.removidos = removerAusentesDaPlanilha(importBuffer);
   
   // Salvar no Firestore
   try {
@@ -1963,7 +2011,8 @@ async function confirmarImport() {
   let msg = `✅ Importação concluída:\n`;
   msg += `  • ${stats.adicionados} novos\n`;
   msg += `  • ${stats.atualizados} atualizados\n`;
-  msg += `  • ${stats.transferidos} transferidos entre categorias`;
+  msg += `  • ${stats.transferidos} transferidos entre categorias\n`;
+  msg += `  • ${stats.removidos} removidos por ausência na planilha`;
   
   if (stats.erros.length > 0) {
     msg += `\n\n⚠️ Erros:\n  • ${stats.erros.join('\n  • ')}`;
