@@ -1769,6 +1769,211 @@ function baixarModelo(){
 ============================= */
 // IMPORTANTE: agora quem chama renderTabela() e iniciarSyncRemoto()
 // é o unlockView(). Não inicialize aqui para não vazar dados antes.
+  /* =============================
+   UPDATE DE REGISTROS EXISTENTES
+============================= */
+
+/**
+ * Procura um registrador em TODAS as categorias pelo RE ou Nome+Admissão
+ * Retorna { categoria, index, registro } ou null
+ */
+function findDuplicateInAllCategories(rec) {
+  const reKey = normRe(rec.re);
+  const naKey = keyNomeAdm(rec.nome, rec.admissao);
+  
+  const allCategorias = [
+    { nome: 'efetivo', data: dados.efetivo },
+    { nome: 'pj', data: dados.pj },
+    { nome: 'terceiros', data: dados.terceiros },
+    { nome: 'mob', data: dados.mob }
+  ];
+  
+  for (let cat of allCategorias) {
+    const idx = cat.data.findIndex(x => {
+      if (rec.tipo === 'terceiro') {
+        // Para terceiros: comparar por nome + empresa
+        return normKey(x.nome) === normKey(rec.nome) && 
+               normKey(x.empresa) === normKey(rec.empresa);
+      } else if (rec.tipo === 'mob') {
+        // Para mob: comparar por nome + tipo de movimentação
+        return normKey(x.nome) === normKey(rec.nome) && 
+               normKey(x.movTipo) === normKey(rec.movTipo);
+      } else {
+        // Para efetivo/PJ: RE ou Nome+Admissão
+        const xRe = normRe(x.re);
+        const xNA = keyNomeAdm(x.nome, x.admissao);
+        return (reKey && xRe && xRe === reKey) || (naKey && xNA === naKey);
+      }
+    });
+    
+    if (idx >= 0) {
+      return { categoria: cat.nome, index: idx, registro: cat.data[idx] };
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Atualiza um registro existente com dados da planilha
+ * Retorna true se houve mudanças
+ */
+function updateRegistroExistente(registroExistente, novosDados) {
+  let mudouAlgo = false;
+  
+  // Campos que podem ser atualizados
+  const camposAtualizaveis = ['nome', 're', 'funcao', 'setor', 'admissao', 'salh', 'salm', 'aso', 'cbo', 'nasc'];
+  
+  for (let campo of camposAtualizaveis) {
+    if (campo in novosDados && novosDados[campo]) {
+      if (registroExistente[campo] !== novosDados[campo]) {
+        registroExistente[campo] = novosDados[campo];
+        mudouAlgo = true;
+      }
+    }
+  }
+  
+  // Para Mob: atualizar tipo de movimentação
+  if ('movTipo' in novosDados && novosDados.movTipo && registroExistente.movTipo !== novosDados.movTipo) {
+    registroExistente.movTipo = novosDados.movTipo;
+    mudouAlgo = true;
+  }
+  
+  // Para terceiros: atualizar empresa e serviço
+  if ('empresa' in novosDados && novosDados.empresa && registroExistente.empresa !== novosDados.empresa) {
+    registroExistente.empresa = novosDados.empresa;
+    mudouAlgo = true;
+  }
+  if ('servico' in novosDados && novosDados.servico && registroExistente.servico !== novosDados.servico) {
+    registroExistente.servico = novosDados.servico;
+    mudouAlgo = true;
+  }
+  
+  return mudouAlgo;
+}
+
+/**
+ * NOVA LÓGICA: Adiciona ou atualiza registro
+ * Se encontrar duplicado, atualiza; se não, adiciona novo
+ */
+function adicionarOuAtualizar(categoria, novoRegistro) {
+  novoRegistro.tipo = categoria; // marca tipo para busca
+  
+  const duplicado = findDuplicateInAllCategories(novoRegistro);
+  
+  if (duplicado) {
+    // Encontrou similar em alguma categoria
+    const { categoria: catExistente, index, registro: regExistente } = duplicado;
+    
+    // Se está em categoria DIFERENTE, precisa transferir
+    if (catExistente !== categoria) {
+      // Remove de categoria antiga
+      dados[catExistente].splice(index, 1);
+      // Atualiza campos
+      updateRegistroExistente(novoRegistro, regExistente);
+      ensureId(novoRegistro);
+      // Adiciona em categoria nova
+      dados[categoria].push(novoRegistro);
+      return { acao: 'transferido', categoria: catExistente, novCategoria: categoria };
+    } else {
+      // Mesma categoria: só atualiza
+      const mudouAlgo = updateRegistroExistente(regExistente, novoRegistro);
+      return { acao: 'atualizado', mudou: mudouAlgo };
+    }
+  } else {
+    // Novo registro
+    ensureId(novoRegistro);
+    dados[categoria].push(novoRegistro);
+    return { acao: 'adicionado' };
+  }
+}
+
+/* =============================
+   MODIFICAR: confirmarImport()
+============================= */
+
+/**
+ * Versão NOVA de confirmarImport com UPDATE
+ */
+async function confirmarImport() {
+  const { setDoc, serverTimestamp, WRITE_KEY } = fb();
+  
+  let stats = {
+    adicionados: 0,
+    atualizados: 0,
+    transferidos: 0,
+    erros: []
+  };
+  
+  // Processar cada registro do buffer
+  for (let rec of importBuffer) {
+    try {
+      let resultado;
+      
+      if (rec.tipo === 'efetivo') {
+        resultado = adicionarOuAtualizar('efetivo', rec);
+      } else if (rec.tipo === 'pj') {
+        resultado = adicionarOuAtualizar('pj', rec);
+      } else if (rec.tipo === 'terceiro') {
+        resultado = adicionarOuAtualizar('terceiros', rec);
+      } else if (rec.tipo === 'mob') {
+        resultado = adicionarOuAtualizar('mob', rec);
+      }
+      
+      // Contar resultado
+      if (resultado.acao === 'adicionado') stats.adicionados++;
+      else if (resultado.acao === 'atualizado') {
+        if (resultado.mudou) stats.atualizados++;
+      }
+      else if (resultado.acao === 'transferido') {
+        stats.transferidos++;
+        stats.atualizados++; // contar também como atualizado
+      }
+      
+    } catch (err) {
+      console.error('Erro ao processar registro:', rec, err);
+      stats.erros.push(rec.nome || 'desconhecido');
+    }
+  }
+  
+  // Salvar no Firestore
+  try {
+    await setDoc(dbRef(), {
+      efetivo: dados.efetivo,
+      pj: dados.pj,
+      terceiros: dados.terceiros,
+      mob: dados.mob,
+      writeKey: WRITE_KEY,
+      updatedAt: serverTimestamp(),
+      updatedReason: 'import_com_update'
+    }, { merge: true });
+    
+    __lastRemoteJson = JSON.stringify(getPayloadForRemote());
+  } catch (err) {
+    console.error('Erro ao salvar no Firestore:', err);
+    stats.erros.push('Falha ao sincronizar com servidor');
+  }
+  
+  // Renderizar
+  migrateData();
+  renderTabela();
+  
+  // Feedback
+  let msg = `✅ Importação concluída:\n`;
+  msg += `  • ${stats.adicionados} novos\n`;
+  msg += `  • ${stats.atualizados} atualizados\n`;
+  msg += `  • ${stats.transferidos} transferidos entre categorias`;
+  
+  if (stats.erros.length > 0) {
+    msg += `\n\n⚠️ Erros:\n  • ${stats.erros.join('\n  • ')}`;
+  }
+  
+  alert(msg);
+  
+  // Limpar
+  importBuffer = [];
+  closeModal('modal-import');
+}
 </script>
 </body>
 </html>
