@@ -457,7 +457,7 @@ table{
         <div class="stat-val" id="stat-mob">0</div>
       </div>
       <div class="stat-card" data-filter="altfunc" onclick="setFilter('altfunc',this)">
-        <div class="stat-label">Alteração Função</div>
+        <div class="stat-label">Alteração de Função</div>
         <div class="stat-val" id="stat-altfunc">0</div>
       </div>
     </div>
@@ -1121,7 +1121,7 @@ function renderTabela() {
       funcao = funcaoTitle;
       if (isAguardaAlteracaoFuncao(r.situacao)) {
         rowClass = 'row-funcao-change';
-        funcao += ' <span class="badge badge-func-change">Mudança de função</span>';
+        funcao += ' <span class="badge badge-func-change">Alteração de função</span>';
       }
       setor = r.setor || '—';
       adm = fmtDate(r.admissao);
@@ -1576,12 +1576,18 @@ function salvarRegistro() {
     const emp = document.getElementById('tc-empresa').value.trim();
     if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; return; }
     if (!emp) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe a empresa.'; return; }
+    let situacaoAtual = '';
+    if (editingIndex && editingIndex.tipo === 'terceiro') {
+      const { arr, idx } = findById('terceiro', editingIndex.id);
+      if (idx >= 0) situacaoAtual = arr[idx].situacao || '';
+    }
 
     const obj = ensureId({
       _id: (editingIndex && editingIndex.tipo === 'terceiro') ? editingIndex.id : undefined,
       nome: n,
       empresa: emp,
-      servico: document.getElementById('tc-servico').value.trim()
+      servico: document.getElementById('tc-servico').value.trim(),
+      situacao: situacaoAtual
     });
 
     if (!editingIndex && existsTerceiro(obj.nome, obj.empresa)) {
@@ -1605,6 +1611,11 @@ function salvarRegistro() {
     const funcao = document.getElementById('mb-funcao').value.trim();
     const setorManual = document.getElementById('mb-setor').value.trim();
     const setor = setorManual || setorFromFuncao(funcao);
+    let situacaoAtual = '';
+    if (editingIndex && editingIndex.tipo === 'mob') {
+      const { arr, idx } = findById('mob', editingIndex.id);
+      if (idx >= 0) situacaoAtual = arr[idx].situacao || '';
+    }
 
     const obj = ensureId({
       _id: (editingIndex && editingIndex.tipo === 'mob') ? editingIndex.id : undefined,
@@ -1613,7 +1624,8 @@ function salvarRegistro() {
       funcao,
       setor,
       salh,
-      salm
+      salm,
+      situacao: situacaoAtual
     });
 
     if (!editingIndex && existsMob(obj.nome, obj.movTipo)) {
