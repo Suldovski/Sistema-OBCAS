@@ -80,6 +80,12 @@
       cursor:pointer;transition:all .15s;white-space:nowrap;
       display:inline-flex;align-items:center;gap:6px;
     }
+    .btn.bounce-click{animation:btnBounce .28s ease}
+    @keyframes btnBounce{
+      0%{transform:scale(1)}
+      40%{transform:scale(1.06)}
+      100%{transform:scale(1)}
+    }
     .btn:hover{background:var(--surface2);border-color:#b6bec7}
     .btn-blue{background:var(--blue);border-color:var(--blue);color:#fff}
     .btn-blue:hover{background:var(--blue-light);border-color:var(--blue-light)}
@@ -141,6 +147,7 @@
     }
     .filter-dot{width:8px;height:8px;border-radius:50%}
     .toolbar-right{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+    .toolbar-mobile-toggle{display:none}
 
 .table-wrap{
   width: 100%;
@@ -181,6 +188,16 @@ table{
     td.mono{font-family:'DM Mono',monospace;font-size:11px;color:#44505c}
     tr:hover td{background:#f6f8fa}
     tr:last-child td{border-bottom:none}
+    tr.row-new td{animation:rowFadeIn .28s ease}
+    tr.row-removing td{animation:rowSlideOut .22s ease forwards}
+    @keyframes rowFadeIn{
+      from{opacity:0;transform:translateY(8px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+    @keyframes rowSlideOut{
+      from{opacity:1;transform:translateX(0)}
+      to{opacity:0;transform:translateX(18px)}
+    }
 
     /* EXP: só cor (vencido normal) */
     td.exp-soon{ color: var(--red) !important; font-weight: 900; }
@@ -303,9 +320,49 @@ table{
     }
     .edit-tab:hover{color:var(--text);background:#eaeef2}
     .edit-tab.active{background:var(--blue);color:#fff}
+    .tab-enter{animation:tabFade .22s ease}
+    @keyframes tabFade{
+      from{opacity:.3;transform:translateY(4px)}
+      to{opacity:1;transform:translateY(0)}
+    }
 
     .feedback{font-size:12px;min-height:18px;margin-top:10px;font-weight:900}
+    .feedback.success-pulse{animation:successPulse .5s ease}
+    @keyframes successPulse{
+      0%{transform:scale(1)}
+      45%{transform:scale(1.03)}
+      100%{transform:scale(1)}
+    }
     .pass-err{font-size:12px;color:var(--red);margin-top:6px;display:none;font-weight:900}
+
+    .toast-stack{
+      position:fixed;right:16px;bottom:16px;z-index:5000;
+      display:flex;flex-direction:column;gap:8px;max-width:min(92vw,360px);
+    }
+    .toast{
+      display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:flex-start;
+      padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--surface);
+      box-shadow:0 10px 28px rgba(0,0,0,.16);animation:toastIn .2s ease;
+    }
+    .toast.success{border-color:#bbf7d0;background:#f0fdf4}
+    .toast.error{border-color:#fecaca;background:#fef2f2}
+    .toast.warning{border-color:#fde68a;background:#fffbeb}
+    .toast.info{border-color:#bfdbfe;background:#eff6ff}
+    .toast-ico{font-size:14px;line-height:1.2}
+    .toast-msg{font-size:12px;color:var(--text);font-weight:700;line-height:1.45}
+    .toast-close{
+      border:0;background:transparent;cursor:pointer;color:var(--text2);
+      font-size:14px;line-height:1;padding:0 0 0 4px;
+    }
+    .toast.out{animation:toastOut .16s ease forwards}
+    @keyframes toastIn{
+      from{opacity:0;transform:translateY(8px)}
+      to{opacity:1;transform:translateY(0)}
+    }
+    @keyframes toastOut{
+      from{opacity:1;transform:translateY(0)}
+      to{opacity:0;transform:translateY(6px)}
+    }
 
     .transfer-section{margin-top:16px;padding-top:16px;border-top:1px solid var(--border2)}
     .transfer-section label{font-size:10px;color:var(--text2);font-weight:900;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:6px}
@@ -336,18 +393,42 @@ table{
     @media (max-width:768px){
       .header{height:auto;min-height:64px;padding:8px 10px;align-items:flex-start;flex-wrap:wrap}
       .header-actions{width:100%;justify-content:flex-end}
-      .stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+      .stats{grid-template-columns:1fr;gap:8px}
       .stat-card{padding:12px;min-height:80px}
       .stat-label{font-size:9px}
       .stat-val{font-size:24px}
-      .card-toolbar{padding:10px}
-      .search-wrap{min-width:100%}
-      .toolbar-right{margin-left:0;width:100%}
-      .toolbar-right .btn{flex:1 1 auto;justify-content:center}
-      table{min-width:760px;font-size:10.5px}
+      .btn{min-height:44px}
+      .card-toolbar{padding:10px;align-items:stretch}
+      .toolbar-mobile-toggle{display:flex;justify-content:flex-end;width:100%}
+      .card-toolbar .search-wrap,
+      .card-toolbar .filter-label,
+      .card-toolbar .toolbar-right{display:none}
+      .card-toolbar.mobile-open .search-wrap{display:block;min-width:100%;max-width:none}
+      .card-toolbar.mobile-open .filter-label{display:inline-flex;width:max-content}
+      .card-toolbar.mobile-open .toolbar-right{display:flex;margin-left:0;width:100%}
+      .card-toolbar.mobile-open .toolbar-right .btn{
+        flex:1 1 auto;justify-content:center;min-height:44px;font-size:13px;
+      }
+      table{min-width:700px;font-size:10.5px}
       th, td{padding:8px 7px;height:40px}
+      th.col-nome, td.col-nome{min-width:120px}
+      th.col-func, td.col-func{min-width:120px}
+      th.col-setor, td.col-setor{min-width:80px}
       .rank-head{padding:10px 12px}
       .rank-row{padding:7px 8px;font-size:11px}
+      #modal-edicao .modal,
+      #modal-import .modal,
+      #modal-confirm .confirm-modal,
+      #modal-wipe .confirm-modal,
+      #modal-senha .modal{
+        width:100vw;max-width:100vw;min-height:100vh;border-radius:0;margin:0;padding:18px;
+      }
+      #modal-edicao,
+      #modal-import,
+      #modal-confirm,
+      #modal-wipe,
+      #modal-senha{padding:0}
+      .toast-stack{right:10px;left:10px;bottom:10px;max-width:none}
     }
 
     @media (max-width:480px){
@@ -368,7 +449,6 @@ table{
   background: #f8fafc !important;   /* branco minimalista */
   backdrop-filter: none !important; /* sem blur */
 
-  display: flex !important;
   align-items: center !important;   /* centraliza vertical */
   justify-content: center !important; /* centraliza horizontal */
   padding: 16px !important;
@@ -510,7 +590,7 @@ table{
     </div>
     <div class="header-actions">
       <span class="date-badge" id="date-badge"></span>
-      <button class="btn btn-blue" onclick="openEditPanel()">Adicionar Colaborador</button>
+      <button class="btn btn-blue" title="Adicionar colaborador" onclick="openEditPanel()">Adicionar Colaborador</button>
       <button class="btn" onclick="window.print()">Exportar PDF</button>
     </div>
   </div>
@@ -553,15 +633,18 @@ table{
 
     <div class="card">
       <div class="card-toolbar">
+        <div class="toolbar-mobile-toggle">
+          <button class="btn btn-sm" id="mobile-toolbar-btn" title="Abrir filtros e ações">☰ Filtros e ações</button>
+        </div>
         <div class="search-wrap">
-          <input type="text" id="busca" placeholder="Buscar por nome, RE, função, setor..." oninput="renderTabela()" />
+          <input type="text" id="busca" placeholder="Buscar por nome, RE, função, setor..." title="Buscar (Ctrl/Cmd + K)" oninput="renderTabela()" />
         </div>
         <span class="filter-label" id="filter-label">
           <span class="filter-dot" style="background:var(--blue)"></span>
           Todos os registros
         </span>
         <div class="toolbar-right">
-          <button class="btn btn-green" onclick="openImport()">Importar Planilha</button>
+          <button class="btn btn-green" title="Importar planilha (Ctrl/Cmd + I)" onclick="openImport()">Importar Planilha</button>
           <button class="btn btn-ghost" onclick="baixarModelo()">Baixar Modelo</button>
           <button class="btn btn-red" onclick="openWipeAll()">Apagar Todos</button>
         </div>
@@ -622,9 +705,9 @@ table{
       <h3 id="modal-edicao-title">Adicionar registro</h3>
 
       <div class="edit-tabs" id="edit-tabs-bar">
-        <button class="edit-tab active" id="etab-ef" onclick="setEditTab('ef')">Efetivo / PJ</button>
-        <button class="edit-tab" id="etab-tc" onclick="setEditTab('tc')">Terceiros</button>
-        <button class="edit-tab" id="etab-mb" onclick="setEditTab('mb')">Mobilização</button>
+        <button class="edit-tab active" id="etab-ef" title="Aba Efetivo/PJ" onclick="setEditTab('ef')">Efetivo / PJ</button>
+        <button class="edit-tab" id="etab-tc" title="Aba Terceiros" onclick="setEditTab('tc')">Terceiros</button>
+        <button class="edit-tab" id="etab-mb" title="Aba Mobilização" onclick="setEditTab('mb')">Mobilização</button>
       </div>
 
       <div id="form-ef">
@@ -678,8 +761,8 @@ table{
 
       <div class="feedback" id="add-feedback"></div>
       <div class="modal-actions">
-        <button class="btn btn-red" onclick="closeModal('modal-edicao')">Fechar</button>
-        <button class="btn btn-blue" id="btn-salvar" onclick="salvarRegistro()">Adicionar</button>
+        <button class="btn btn-red" title="Fechar (Esc)" onclick="closeModal('modal-edicao')">Fechar</button>
+        <button class="btn btn-blue" id="btn-salvar" title="Salvar (Enter)" onclick="salvarRegistro()">Adicionar</button>
       </div>
     </div>
   </div>
@@ -728,6 +811,7 @@ table{
   </div>
 
 </div> <!-- /app-content -->
+<div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
 
 <script>
 /* =============================
@@ -781,6 +865,19 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.key === 'Enter') unlockView();
     });
   }
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.btn, .icon-btn');
+    if (!btn) return;
+    btn.classList.remove('bounce-click');
+    void btn.offsetWidth;
+    btn.classList.add('bounce-click');
+    setTimeout(() => btn.classList.remove('bounce-click'), 300);
+  });
+  const toolbar = document.querySelector('.card-toolbar');
+  const mobileToolbarBtn = document.getElementById('mobile-toolbar-btn');
+  if (toolbar && mobileToolbarBtn) {
+    mobileToolbarBtn.addEventListener('click', () => toolbar.classList.toggle('mobile-open'));
+  }
 });
 /* =============================
    STATE
@@ -792,6 +889,10 @@ let deleteTarget = null;
 let importBuffer = [];
 let autenticado = false;
 let pendingAction = null;
+const recentRowIds = new Set();
+let pendingDeleteId = null;
+let syncToastShown = false;
+let remoteToastShown = false;
 
 // Dados locais em memória (renderiza a tela)
 const dados = { efetivo: [], pj: [], terceiros: [], mob: [] };
@@ -857,6 +958,10 @@ function applyRemoteDoc(data) {
 
     migrateData();
     renderTabela();
+    if (!remoteToastShown) {
+      showToast('info', 'Dados carregados.');
+      remoteToastShown = true;
+    }
 
     __lastRemoteJson = JSON.stringify(getPayloadForRemote());
   } finally {
@@ -866,11 +971,15 @@ function applyRemoteDoc(data) {
 
 function iniciarSyncRemoto() {
   const { onSnapshot } = fb();
+  if (!syncToastShown) {
+    showToast('info', 'Sincronizando dados...');
+    syncToastShown = true;
+  }
   onSnapshot(dbRef(), (snap) => {
     if (!snap.exists()) {
       // primeira vez: cria doc vazio (para todos PCs terem base)
       // não chama salvarRemoto (regras exigem writeKey, mas aqui já tem)
-      salvarRemoto('init').catch(console.error);
+      salvarRemoto('init').catch(() => showToast('error', 'Falha ao iniciar sincronização.'));
       return;
     }
     const data = snap.data() || {};
@@ -887,6 +996,7 @@ function iniciarSyncRemoto() {
     applyRemoteDoc(remotePayload);
   }, (err) => {
     console.error('Erro Firestore onSnapshot:', err);
+    showToast('error', 'Erro de sincronização em tempo real.');
     // Se rules negarem, você verá "Missing or insufficient permissions"
   });
 }
@@ -955,6 +1065,43 @@ function fmtMoney(v) {
   const n = parseMoneyToNumber(v);
   if (n === null) return '';
   return n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+const TOAST_META = {
+  success: { icon: '✅', cls: 'success', timeout: 3500 },
+  error: { icon: '❌', cls: 'error', timeout: 5000 },
+  warning: { icon: '⚠️', cls: 'warning', timeout: 4500 },
+  info: { icon: 'ℹ️', cls: 'info', timeout: 3500 }
+};
+function showToast(type, message, timeoutMs) {
+  const stack = document.getElementById('toast-stack');
+  if (!stack || !message) return;
+  const cfg = TOAST_META[type] || TOAST_META.info;
+  const toast = document.createElement('div');
+  toast.className = `toast ${cfg.cls}`;
+  toast.innerHTML = `
+    <span class="toast-ico">${cfg.icon}</span>
+    <div class="toast-msg">${message}</div>
+    <button class="toast-close" aria-label="Fechar notificação">×</button>
+  `;
+  const close = () => {
+    if (!toast.isConnected) return;
+    toast.classList.add('out');
+    setTimeout(() => toast.remove(), 180);
+  };
+  toast.querySelector('.toast-close').onclick = close;
+  stack.appendChild(toast);
+  setTimeout(close, timeoutMs ?? cfg.timeout);
+}
+function getOpenModalId() {
+  const ids = ['modal-edicao','modal-import','modal-confirm','modal-wipe','modal-senha'];
+  return ids.find(id => document.getElementById(id)?.classList.contains('open')) || null;
+}
+function focusBusca() {
+  const inp = document.getElementById('busca');
+  const toolbar = document.querySelector('.card-toolbar');
+  if (toolbar && window.innerWidth <= 768) toolbar.classList.add('mobile-open');
+  if (inp) { inp.focus(); inp.select(); }
 }
 
 /* =============================
@@ -1250,7 +1397,9 @@ function renderTabela() {
       salm = (r.salm || '').toString().trim() || '—';
     }
 
-    return `<tr class="${rowClass}">
+    if (recentRowIds.has(r._id)) rowClass = `${rowClass} row-new`.trim();
+    if (pendingDeleteId && pendingDeleteId === r._id) rowClass = `${rowClass} row-removing`.trim();
+    return `<tr data-row-id="${r._id}" class="${rowClass}">
       <td class="col-re mono" title="${re}">${re}</td>
       <td class="col-nome name-col" title="${nome}">${nome}</td>
       <td class="col-tipo">${tipo}</td>
@@ -1267,6 +1416,7 @@ function renderTabela() {
       <td class="col-acoes">${a}</td>
     </tr>`;
   }).join('');
+  recentRowIds.clear();
 
   atualizarStats();
   atualizarRankings();
@@ -1418,7 +1568,8 @@ function wipeAll(){
   dados.mob = [];
   closeModal('modal-wipe');
   renderTabela();
-  salvarRemoto('wipeAll').catch(console.error);
+  showToast('success', 'Todos os registros foram removidos.');
+  salvarRemoto('wipeAll').catch(() => showToast('error', 'Falha ao salvar remoção total.'));
 }
 
 /* =============================
@@ -1439,7 +1590,13 @@ function openEditPanel() {
 function setEditTab(t) {
   editTab = t;
   ['ef','tc','mb'].forEach(x => {
-    document.getElementById('form-' + x).style.display = x === t ? 'block' : 'none';
+    const form = document.getElementById('form-' + x);
+    form.style.display = x === t ? 'block' : 'none';
+    form.classList.remove('tab-enter');
+    if (x === t) {
+      void form.offsetWidth;
+      form.classList.add('tab-enter');
+    }
     document.getElementById('etab-' + x).classList.toggle('active', x === t);
   });
 }
@@ -1583,7 +1740,8 @@ function transferirRegistroPorId(deTipo, deId, paraTipo) {
 
   renderTabela();
   closeModal('modal-edicao');
-  salvarRemoto('transfer').catch(console.error);
+  showToast('success', 'Registro transferido com sucesso.');
+  salvarRemoto('transfer').catch(() => showToast('error', 'Falha ao salvar transferência.'));
 }
 
 function abrirExcluirPorId(tipo, id) {
@@ -1601,11 +1759,20 @@ function confirmarExclusao() {
   if (!deleteTarget) return;
   const { tipo, id } = deleteTarget;
   const { arr, idx } = findById(tipo, id);
-  if (idx >= 0) arr.splice(idx, 1);
-  renderTabela();
+  const executeDelete = () => {
+    if (idx >= 0) arr.splice(idx, 1);
+    pendingDeleteId = null;
+    renderTabela();
+    showToast('success', 'Registro excluído com sucesso.');
+    salvarRemoto('delete').catch(() => showToast('error', 'Falha ao salvar exclusão.'));
+  };
+  const rowEl = document.querySelector(`tr[data-row-id="${id}"]`);
   closeModal('modal-confirm');
   deleteTarget = null;
-  salvarRemoto('delete').catch(console.error);
+  if (!rowEl) return executeDelete();
+  pendingDeleteId = id;
+  rowEl.classList.add('row-removing');
+  setTimeout(executeDelete, 220);
 }
 
 /* =============================
@@ -1616,7 +1783,7 @@ function salvarRegistro() {
 
   if (editTab === 'ef') {
     const n = document.getElementById('ef-nome').value.trim();
-    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; return; }
+    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; showToast('warning','Informe o nome para salvar.'); return; }
 
     const adm = document.getElementById('ef-admissao').value;
     const re  = document.getElementById('ef-re').value.trim();
@@ -1655,6 +1822,7 @@ function salvarRegistro() {
       if (existsEfOrPj(destArr, obj)) {
         fbk.style.color = 'var(--red)';
         fbk.textContent = 'Já existe um cadastro com este RE ou com o mesmo Nome + Admissão.';
+        showToast('warning', 'Duplicado encontrado (RE ou Nome + Admissão).');
         return;
       }
     }
@@ -1671,13 +1839,14 @@ function salvarRegistro() {
     } else {
       if (destTipo === 'pj') dados.pj.push(obj);
       else dados.efetivo.push(obj);
+      recentRowIds.add(obj._id);
     }
 
   } else if (editTab === 'tc') {
     const n = document.getElementById('tc-nome').value.trim();
     const emp = document.getElementById('tc-empresa').value.trim();
-    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; return; }
-    if (!emp) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe a empresa.'; return; }
+    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; showToast('warning','Informe o nome para salvar.'); return; }
+    if (!emp) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe a empresa.'; showToast('warning','Informe a empresa para salvar.'); return; }
     let situacaoAtual = '';
     if (editingIndex && editingIndex.tipo === 'terceiro') {
       const { arr, idx } = findById('terceiro', editingIndex.id);
@@ -1695,17 +1864,21 @@ function salvarRegistro() {
     if (!editingIndex && existsTerceiro(obj.nome, obj.empresa)) {
       fbk.style.color = 'var(--red)';
       fbk.textContent = 'Este terceirizado já está cadastrado (Nome + Empresa).';
+      showToast('warning', 'Duplicado encontrado (Nome + Empresa).');
       return;
     }
 
     if (editingIndex && editingIndex.tipo === 'terceiro') {
       const { arr, idx } = findById('terceiro', editingIndex.id);
       if (idx >= 0) arr[idx] = obj;
-    } else dados.terceiros.push(obj);
+    } else {
+      dados.terceiros.push(obj);
+      recentRowIds.add(obj._id);
+    }
 
   } else {
     const n = document.getElementById('mb-nome').value.trim();
-    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; return; }
+    if (!n) { fbk.style.color = 'var(--red)'; fbk.textContent = 'Informe o nome.'; showToast('warning','Informe o nome para salvar.'); return; }
 
     const salh = fmtMoney(document.getElementById('mb-salh').value);
     const salm = fmtMoney(document.getElementById('mb-salm').value);
@@ -1733,23 +1906,31 @@ function salvarRegistro() {
     if (!editingIndex && existsMob(obj.nome, obj.movTipo)) {
       fbk.style.color = 'var(--red)';
       fbk.textContent = 'Este registro de mobilização já existe (mesmo nome + tipo).';
+      showToast('warning', 'Duplicado encontrado em mobilização.');
       return;
     }
 
     if (editingIndex && editingIndex.tipo === 'mob') {
       const { arr, idx } = findById('mob', editingIndex.id);
       if (idx >= 0) arr[idx] = obj;
-    } else dados.mob.push(obj);
+    } else {
+      dados.mob.push(obj);
+      recentRowIds.add(obj._id);
+    }
   }
 
   renderTabela();
 
   fbk.style.color = 'var(--green)';
+  fbk.classList.remove('success-pulse');
+  void fbk.offsetWidth;
+  fbk.classList.add('success-pulse');
   fbk.textContent = editingIndex ? 'Salvo com sucesso!' : 'Adicionado com sucesso!';
   const wasEditing = !!editingIndex;
   editingIndex = null;
 
-  salvarRemoto('save').catch(console.error);
+  showToast('success', wasEditing ? 'Registro atualizado com sucesso.' : 'Registro adicionado com sucesso.');
+  salvarRemoto('save').catch(() => showToast('error', 'Falha ao salvar registro.'));
 
   if (wasEditing) setTimeout(() => closeModal('modal-edicao'), 900);
   else limparForms();
@@ -1766,6 +1947,7 @@ function openImport() {
     document.getElementById('btn-confirmar-import').style.display = 'none';
     document.getElementById('file-input').value = '';
     document.getElementById('modal-import').classList.add('open');
+    showToast('info', 'Selecione um arquivo para importar.');
   });
 }
 
@@ -1798,6 +1980,7 @@ function findHeaderRow(rows){
 function processarArquivo(file){
   const fbk = document.getElementById('import-feedback');
   fbk.textContent = 'Lendo arquivo...'; fbk.style.color = 'var(--blue)';
+  showToast('info', 'Processando arquivo de importação...');
 
   const reader = new FileReader();
   reader.onload = e => {
@@ -1805,7 +1988,7 @@ function processarArquivo(file){
       const wb = XLSX.read(e.target.result, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-      if (rows.length < 2){ fbk.style.color='var(--red)'; fbk.textContent='Planilha vazia.'; return; }
+      if (rows.length < 2){ fbk.style.color='var(--red)'; fbk.textContent='Planilha vazia.'; showToast('warning', 'Sem dados: planilha vazia.'); return; }
 
       const headerRowIdx = findHeaderRow(rows);
       const header = rows[headerRowIdx];
@@ -1822,7 +2005,7 @@ function processarArquivo(file){
       const idxSIT  = hRow.indexOf('SITUACAO');
       const idxASO  = ['VENCIMENTOASO','VENCASO','ASO'].map(c => hRow.indexOf(c)).find(i => i >= 0) ?? -1;
 
-      if (idxRE < 0 || idxNOME < 0){ fbk.style.color='var(--red)'; fbk.textContent='Não encontrei colunas RE e NOME.'; return; }
+      if (idxRE < 0 || idxNOME < 0){ fbk.style.color='var(--red)'; fbk.textContent='Não encontrei colunas RE e NOME.'; showToast('error', 'Erro na importação: colunas RE/NOME não encontradas.'); return; }
 
       importBuffer = [];
       let movedToMob = 0;
@@ -1866,6 +2049,7 @@ function processarArquivo(file){
       if (!importBuffer.length && !movedToMob){
         fbk.style.color='var(--red)';
         fbk.textContent='Nenhum registro válido para importar.';
+        showToast('warning', 'Sem dados válidos para importar.');
         return;
       }
 
@@ -1878,9 +2062,11 @@ function processarArquivo(file){
       fbk.style.color='var(--green)';
       fbk.textContent='';
       document.getElementById('btn-confirmar-import').style.display = importBuffer.length ? 'inline-flex' : 'none';
+      showToast('success', `${importBuffer.length} registros prontos para importação.`);
     } catch(err){
       fbk.style.color='var(--red)';
       fbk.textContent='Erro ao ler: ' + err.message;
+      showToast('error', 'Erro na importação: ' + err.message);
     }
   };
   reader.readAsArrayBuffer(file);
@@ -2182,6 +2368,7 @@ async function confirmarImport() {
   } catch (err) {
     console.error('Erro ao salvar no Firestore:', err);
     stats.erros.push('Falha ao sincronizar com servidor');
+    showToast('error', 'Falha ao sincronizar importação com servidor.');
   }
   
   // Renderizar
@@ -2199,12 +2386,41 @@ async function confirmarImport() {
     msg += `\n\n⚠️ Erros:\n  • ${stats.erros.join('\n  • ')}`;
   }
   
-  alert(msg);
+  showToast(stats.erros.length ? 'warning' : 'success', msg.replace(/\n/g, ' '), stats.erros.length ? 6000 : 5000);
   
   // Limpar
   importBuffer = [];
   closeModal('modal-import');
 }
+
+document.addEventListener('keydown', (e) => {
+  const key = e.key.toLowerCase();
+  const openModalId = getOpenModalId();
+
+  if ((e.ctrlKey || e.metaKey) && key === 'k') {
+    e.preventDefault();
+    focusBusca();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && key === 'i') {
+    e.preventDefault();
+    openImport();
+    return;
+  }
+  if (e.key === 'Escape') {
+    if (!openModalId) return;
+    closeModal(openModalId);
+    return;
+  }
+  if (e.key === 'Enter' && openModalId === 'modal-edicao') {
+    const target = e.target;
+    const isField = target && (target.tagName === 'INPUT' || target.tagName === 'SELECT');
+    if (!isField || target.type !== 'file') {
+      e.preventDefault();
+      salvarRegistro();
+    }
+  }
+});
 </script>
 </body>
 </html>
