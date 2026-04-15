@@ -1322,8 +1322,7 @@ function atualizarRankings() {
 
   // Base do ranking: usa o que está na tela (getRows) e pega só efetivo/pj
   const rows = getRows();
-  const baseRank = rows.filter(r => (r._t === 'efetivo' || r._t === 'pj'));
-
+const baseRank = rows.filter(r => (r._t === 'efetivo' || r._t === 'pj' || r._t === 'mob'));
   // Subtítulo (Total geral)
   const comp = `Efetivos: ${totalEf} | PJ: ${totalPj} | Terceiros: ${totalTerc} | Mobilização: ${totalMob}`;
   const sub = totalGeral ? `Base total: ${totalGeral} registro(s) — ${comp}` : 'Sem dados';
@@ -1362,11 +1361,16 @@ function atualizarRankings() {
   `).join('');
 
   // ===== Ranking de Setores =====
-  const setorCounts = {};
-  baseRank.forEach(r => {
-    const k = (r.setor || '—').toString().trim() || '—';
-    setorCounts[k] = (setorCounts[k] || 0) + 1;
-  });
+const setorCounts = {};
+baseRank.forEach(r => {
+  let k;
+  if (r._t === 'mob') {
+    k = 'Mobilização';
+  } else {
+    k = (r.setor || '—').toString().trim() || '—';
+  }
+  setorCounts[k] = (setorCounts[k] || 0) + 1;
+});
 
   const setores = Object.entries(setorCounts)
     .sort((a, b) => b[1] - a[1])
