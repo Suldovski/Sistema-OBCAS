@@ -2051,6 +2051,7 @@ function adicionarOuAtualizar(categoria, novoRegistro) {
 }
 
 function getPlanilhaSyncKeys(rec) {
+  rec = rec || {};
   const keys = [];
   const reKey = normRe(rec.re);
   if (reKey) keys.push(`re:${reKey}`);
@@ -2058,6 +2059,12 @@ function getPlanilhaSyncKeys(rec) {
   const adm = (rec.admissao || '').toString().trim();
   const nome = normKey(rec.nome);
   if (nome && adm) keys.push(`na:${nome}|${adm}`);
+
+  const isMob = rec.tipo === 'mob' || Object.prototype.hasOwnProperty.call(rec, 'movTipo');
+  if (isMob && nome) {
+    const movTipo = normKey(rec.movTipo || 'Entrada');
+    keys.push(`mob:${nome}|${movTipo}`);
+  }
 
   return keys;
 }
@@ -2075,20 +2082,29 @@ function removerAusentesDaPlanilha(importados) {
   });
 
   let removidos = 0;
-  const filtrar = (arr = []) => {
+  const removidosPorTipo = { efetivo: 0, pj: 0, mob: 0 };
+  const filtrar = (arr = [], tipo = '') => {
     const antes = arr.length;
     const depois = arr.filter(rec => {
       if (!isPlanilhaSyncCandidate(rec)) return true;
       const keysRec = getPlanilhaSyncKeys(rec);
       return keysRec.some(k => keysImportados.has(k));
     });
-    removidos += (antes - depois.length);
+    const removidosNoTipo = antes - depois.length;
+    removidos += removidosNoTipo;
+    if (tipo && Object.prototype.hasOwnProperty.call(removidosPorTipo, tipo)) {
+      removidosPorTipo[tipo] += removidosNoTipo;
+    }
     return depois;
   };
 
-  dados.efetivo = filtrar(dados.efetivo);
-  dados.pj = filtrar(dados.pj);
-  dados.mob = filtrar(dados.mob);
+  dados.efetivo = filtrar(dados.efetivo, 'efetivo');
+  dados.pj = filtrar(dados.pj, 'pj');
+  dados.mob = filtrar(dados.mob, 'mob');
+
+  console.info(
+    `[Sync Planilha] Removidos por ausência -> efetivo: ${removidosPorTipo.efetivo}, pj: ${removidosPorTipo.pj}, mob: ${removidosPorTipo.mob}, total: ${removidos}`
+  );
 
   return removidos;
 }
