@@ -846,7 +846,8 @@ function normRe(s) { return normKey(s).replace(/\s+/g,''); }
 
 function isPJ(re) { return normRe(re).includes('PJ'); }
 function isASOInRe(re) { return normRe(re).includes('ASO'); }
-function isAguardaExame(situacao) { return normKey(situacao).includes('AGUARDA EXAME'); }
+function isAguardaExame(situacao, re) { 
+  return normKey(situacao).includes('AGUARDA EXAME') || !re || normRe(re) === 'ASO'; }
 function isAguardaAlteracaoFuncao(situacao) {
   const key = normKey(situacao);
   return key.includes('AGUARDA ALTERACAO FUNCAO') || key.includes('AGUARDA ALTERACAO DE FUNCAO');
@@ -1761,8 +1762,8 @@ function processarArquivo(file){
           salh, salm
         });
 
-        if (isASOInRe(re) || isAguardaExame(situacao)) {
-          importBuffer.push({ ...rec, movTipo:'Entrada', tipo:'mob' });
+        if (isASOInRe(re) || isAguardaExame(situacao, re)) {
+        importBuffer.push({ ...rec, movTipo:'Entrada', tipo:'mob' });
           movedToMob++;
           return;
         }
