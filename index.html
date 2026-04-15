@@ -388,6 +388,94 @@ table{
   border-radius: 16px !important;
 }
     }
+
+    @media print{
+      @page{size:auto;margin:12mm}
+
+      *,*::before,*::after{
+        -webkit-print-color-adjust:exact !important;
+        print-color-adjust:exact !important;
+      }
+
+      html,body{
+        background:#fff !important;
+        color:#000 !important;
+      }
+
+      #modal-view-pass,
+      .modal-bg,
+      #modal-senha,#modal-edicao,#modal-import,#modal-confirm,#modal-wipe{
+        display:none !important;
+      }
+
+      #app-content{
+        display:block !important;
+      }
+
+      .header{
+        position:static !important;
+        background:#fff !important;
+        border:0 !important;
+        height:auto !important;
+        padding:0 0 10px !important;
+        margin-bottom:10px !important;
+      }
+
+      .header-actions,
+      .date-badge,
+      .card-toolbar .search-wrap,
+      .card-toolbar .filter-label,
+      .card-toolbar .toolbar-right,
+      .btn,
+      .icon-btn,
+      .actions-col,
+      th.col-acoes, td.col-acoes,
+      input[type="file"]{
+        display:none !important;
+      }
+
+      .main{padding:0 !important}
+      .stats{gap:8px !important;margin-bottom:10px !important}
+      .stat-card,.card,.rank-card{
+        border:1px solid #d0d7de !important;
+        box-shadow:none !important;
+        background:#fff !important;
+        break-inside:avoid;
+      }
+      .stat-label,.rank-sub,td,.rank-val,.rank-pos{color:#111 !important}
+      .stat-val,.rank-title,.logo-title,.logo-sub,td.name-col{color:#000 !important}
+
+      .table-wrap{
+        overflow:visible !important;
+      }
+      table{
+        width:100% !important;
+        min-width:0 !important;
+        table-layout:auto !important;
+        font-size:10px !important;
+      }
+      thead{display:table-header-group}
+      tr{page-break-inside:avoid;break-inside:avoid}
+      tbody tr{display:table-row !important}
+      th,td{
+        white-space:normal !important;
+        overflow:visible !important;
+        text-overflow:clip !important;
+        border:1px solid #d0d7de !important;
+        background:#fff !important;
+      }
+      th{
+        position:static !important;
+        color:#000 !important;
+      }
+
+      .rankings{
+        grid-template-columns:1fr 1fr !important;
+        page-break-inside:avoid;
+      }
+      .rank-head{border-bottom:1px solid #d0d7de !important;background:#fff !important}
+      .rank-row{border-bottom:1px solid #d0d7de !important}
+    }
   </style>
 </head>
 
