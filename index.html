@@ -2031,12 +2031,46 @@ function processarArquivo(file){
 
       importBuffer = [];
       let movedToMob = 0;
+      const reNaPlanilha = new Map();
+      const reNoSistema = new Map();
+      const esc = (s) => (s || '').toString()
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
-      rows.slice(headerRowIdx+1).forEach(row => {
+      [
+        { tipo: 'efetivo', data: dados.efetivo },
+        { tipo: 'pj', data: dados.pj },
+        { tipo: 'mob', data: dados.mob },
+        { tipo: 'terceiros', data: dados.terceiros }
+      ].forEach(({ tipo, data }) => {
+        (data || []).forEach(rec => {
+          const reKey = normRe(rec.re);
+          const nome = (rec.nome || '').toString().trim();
+          if (!reKey || !nome) return;
+          if (!reNoSistema.has(reKey)) reNoSistema.set(reKey, []);
+          const arr = reNoSistema.get(reKey);
+          if (!arr.some(x => normKey(x.nome) === normKey(nome))) arr.push({ nome, tipo });
+        });
+      });
+
+      rows.slice(headerRowIdx+1).forEach((row, idx) => {
         const nome = (row[idxNOME]||'').toString().trim();
         if (!nome) return;
 
         const re = (row[idxRE]||'').toString().trim();
+        const reKey = normRe(re);
+        if (reKey) {
+          if (!reNaPlanilha.has(reKey)) reNaPlanilha.set(reKey, []);
+          reNaPlanilha.get(reKey).push({
+            nome,
+            linha: headerRowIdx + idx + 2,
+            re
+          });
+        }
+
         const adm = (idxADM>=0) ? parseData(row[idxADM]) : '';
         const funcao = (idxFUN>=0) ? (row[idxFUN]||'').toString().trim() : '';
         const nasc = (idxNASC>=0) ? parseData(row[idxNASC]) : '';
@@ -2075,16 +2109,80 @@ function processarArquivo(file){
         return;
       }
 
-      document.getElementById('import-preview').innerHTML = `
-        <div style="margin-top:10px;font-size:12px;color:var(--text2);font-weight:800">
-          Registros para importar: <strong>${importBuffer.length}</strong> | Classificados para mobilização: <strong>${movedToMob}</strong>
-        </div>
-      `;
+      const reDuplicadosPlanilha = [];
+      const reConflitoSistema = [];
 
-      fbk.style.color='var(--green)';
-      fbk.textContent='';
+      reNaPlanilha.forEach((itens, reKey) => {
+        if (itens.length > 1) {
+          reDuplicadosPlanilha.push({
+            re: itens.find(x => x.re)?.re || reKey,
+            itens
+          });
+        }
+
+        const existentes = reNoSistema.get(reKey);
+        if (!existentes || !existentes.length) return;
+
+        const nomesPlanilha = new Set(itens.map(x => normKey(x.nome)));
+        const nomesSistema = new Set(existentes.map(x => normKey(x.nome)));
+        const conflito = [...nomesPlanilha].some(n => !nomesSistema.has(n)) || [...nomesSistema].some(n => !nomesPlanilha.has(n));
+        if (!conflito) return;
+
+        reConflitoSistema.push({
+          re: itens.find(x => x.re)?.re || reKey,
+          planilha: itens.map(x => `${x.nome} (linha ${x.linha})`),
+          sistema: existentes.map(x => `${x.nome} (${x.tipo})`)
+        });
+      });
+
+      const preview = [
+        `<div style="margin-top:10px;font-size:12px;color:var(--text2);font-weight:800">
+          Registros para importar: <strong>${importBuffer.length}</strong> | Classificados para mobilização: <strong>${movedToMob}</strong>
+        </div>`
+      ];
+
+      if (reDuplicadosPlanilha.length) {
+        preview.push(`
+          <div style="margin-top:10px;padding:10px;border:1px solid var(--red);border-radius:8px;background:#fff5f5;font-size:12px">
+            <div style="font-weight:900;color:var(--red);margin-bottom:6px">⚠️ REs duplicados na planilha (importação bloqueada)</div>
+            <ul style="margin-left:16px;color:var(--text2)">
+              ${reDuplicadosPlanilha.map(item => `<li><strong>${esc(item.re)}</strong>: ${item.itens.map(x => `${esc(x.nome)} (linha ${x.linha})`).join(' | ')}</li>`).join('')}
+            </ul>
+          </div>
+        `);
+      }
+
+      if (reConflitoSistema.length) {
+        preview.push(`
+          <div style="margin-top:10px;padding:10px;border:1px solid var(--orange);border-radius:8px;background:#fff8e6;font-size:12px">
+            <div style="font-weight:900;color:var(--orange);margin-bottom:6px">⚠️ REs com nomes diferentes entre planilha e sistema</div>
+            <ul style="margin-left:16px;color:var(--text2)">
+              ${reConflitoSistema.map(item => `<li><strong>${esc(item.re)}</strong><br>Planilha: ${item.planilha.map(esc).join(' | ')}<br>Sistema: ${item.sistema.map(esc).join(' | ')}</li>`).join('')}
+            </ul>
+          </div>
+        `);
+      }
+
+      document.getElementById('import-preview').innerHTML = preview.join('');
+
+      if (reDuplicadosPlanilha.length) {
+        fbk.style.color='var(--red)';
+        fbk.textContent=`Foram encontrados ${reDuplicadosPlanilha.length} RE(s) duplicados na planilha. Corrija antes de importar.`;
+        document.getElementById('btn-confirmar-import').style.display = 'none';
+        showToast('warning', 'Importação bloqueada: RE duplicado encontrado na planilha.');
+        return;
+      }
+
+      if (reConflitoSistema.length) {
+        fbk.style.color='var(--orange)';
+        fbk.textContent=`Atenção: ${reConflitoSistema.length} RE(s) já existem no sistema com nomes diferentes.`;
+        showToast('warning', `${importBuffer.length} registros lidos com ${reConflitoSistema.length} alerta(s) de RE.`);
+      } else {
+        fbk.style.color='var(--green)';
+        fbk.textContent='';
+        showToast('success', `${importBuffer.length} registros prontos para importação.`);
+      }
       document.getElementById('btn-confirmar-import').style.display = importBuffer.length ? 'inline-flex' : 'none';
-      showToast('success', `${importBuffer.length} registros prontos para importação.`);
     } catch(err){
       fbk.style.color='var(--red)';
       fbk.textContent='Erro ao ler: ' + err.message;
