@@ -586,8 +586,8 @@ table{
       <div id="view-entry-choice">
         <div class="view-entry-help">Selecione como deseja acessar o Sistema OBCAS.</div>
         <div class="view-entry-actions">
-          <button class="btn" onclick="enterClientView()">Acessar no modo de observação</button>
-          <button class="btn btn-blue" onclick="showTeamLogin()">Acessar no modo de edição</button>
+          <button class="btn" onclick="enterClientView()">Visualizar como Cliente</button>
+          <button class="btn btn-blue" onclick="showTeamLogin()">Acessar como Equipe</button>
         </div>
       </div>
       <div id="view-entry-team" style="display:none">
@@ -619,7 +619,8 @@ table{
     <div class="header-actions">
       <span class="view-mode-badge" id="view-mode-badge">Modo bloqueado</span>
       <span class="date-badge" id="date-badge"></span>
-      <button class="btn btn-blue" title="Adicionar colaborador" onclick="openEditPanel()">Adicionar Colaborador</button>
+      <button class="btn" onclick="lockView()">Trocar Modo</button>
+      <button class="btn btn-blue" title="Adicionar colaborador" data-team-only="true" onclick="openEditPanel()">Adicionar Colaborador</button>
       <button class="btn" onclick="window.print()">Exportar PDF</button>
     </div>
   </div>
@@ -673,9 +674,9 @@ table{
           Todos os registros
         </span>
         <div class="toolbar-right">
-          <button class="btn btn-green" title="Importar planilha (Ctrl/Cmd + I)" onclick="openImport()">Importar Planilha</button>
+          <button class="btn btn-green" title="Importar planilha (Ctrl/Cmd + I)" data-team-only="true" onclick="openImport()">Importar Planilha</button>
           <button class="btn btn-ghost" onclick="baixarModelo()">Baixar Modelo</button>
-          <button class="btn btn-red" onclick="openWipeAll()">Apagar Todos</button>
+          <button class="btn btn-red" data-team-only="true" onclick="openWipeAll()">Apagar Todos</button>
         </div>
       </div>
 
@@ -956,20 +957,25 @@ let accessMode = 'bloqueado';
 let remoteSyncStarted = false;
 
 function canViewSalary() { return accessMode === 'equipe'; }
+function isTeamMode() { return accessMode === 'equipe'; }
 function setAccessMode(mode) {
   accessMode = mode;
   const el = document.getElementById('view-mode-badge');
-  if (!el) return;
-  el.classList.remove('mode-cliente', 'mode-equipe');
-  if (mode === 'cliente') {
-    el.textContent = 'Modo Observação';
-    el.classList.add('mode-cliente');
-  } else if (mode === 'equipe') {
-    el.textContent = 'Modo Edição';
-    el.classList.add('mode-equipe');
-  } else {
-    el.textContent = 'Modo bloqueado';
+  if (el) {
+    el.classList.remove('mode-cliente', 'mode-equipe');
+    if (mode === 'cliente') {
+      el.textContent = 'Modo Cliente';
+      el.classList.add('mode-cliente');
+    } else if (mode === 'equipe') {
+      el.textContent = 'Modo Equipe';
+      el.classList.add('mode-equipe');
+    } else {
+      el.textContent = 'Modo bloqueado';
+    }
   }
+  document.querySelectorAll('[data-team-only="true"]').forEach((btn) => {
+    btn.style.display = mode === 'equipe' ? '' : 'none';
+  });
 }
 
 // Dados locais em memória (renderiza a tela)
@@ -1401,20 +1407,20 @@ switch (activeFilter) {
    TABLE RENDER
 ============================= */
 const COLS = [
-  { label:'RE', cls:'col-re mono' },
-  { label:'Nome', cls:'col-nome name-col' },
-  { label:'Tipo', cls:'col-tipo' },
-  { label:'Função / Serviço', cls:'col-func' },
-  { label:'Setor', cls:'col-setor' },
-  { label:'Admissão', cls:'col-adm mono' },
-  { label:'Nascimento', cls:'col-nasc mono' },
-  { label:'CBO', cls:'col-cbo mono' },
-  { label:'Exp.30', cls:'col-exp mono' },
-  { label:'Exp.60', cls:'col-exp mono' },
-  { label:'Venc. ASO', cls:'col-aso mono' },
-  { label:'Salário/Hora', cls:'col-salh mono' },
-  { label:'Salário/Mensal', cls:'col-salm mono' },
-  { label:'Ações', cls:'col-acoes' },
+  { key:'re', label:'RE', cls:'col-re mono', clientVisible:true },
+  { key:'nome', label:'Nome', cls:'col-nome name-col', clientVisible:true },
+  { key:'tipo', label:'Tipo', cls:'col-tipo', clientVisible:true },
+  { key:'funcao', label:'Função / Serviço', cls:'col-func', clientVisible:true },
+  { key:'setor', label:'Setor', cls:'col-setor', clientVisible:true },
+  { key:'adm', label:'Admissão', cls:'col-adm mono', clientVisible:true },
+  { key:'nasc', label:'Nascimento', cls:'col-nasc mono', clientVisible:false },
+  { key:'cbo', label:'CBO', cls:'col-cbo mono', clientVisible:false },
+  { key:'exp30', label:'Exp.30', cls:'col-exp mono', clientVisible:true },
+  { key:'exp60', label:'Exp.60', cls:'col-exp mono', clientVisible:true },
+  { key:'aso', label:'Venc. ASO', cls:'col-aso mono', clientVisible:true },
+  { key:'salh', label:'Salário/Hora', cls:'col-salh mono', clientVisible:false },
+  { key:'salm', label:'Salário/Mensal', cls:'col-salm mono', clientVisible:false },
+  { key:'acoes', label:'Ações', cls:'col-acoes', clientVisible:false },
 ];
 
 function actIcons(tipo, id) {
@@ -1429,8 +1435,9 @@ function renderTabela() {
   const tbody = document.getElementById('tabela-corpo');
   const thead = document.getElementById('thead-row');
   const empty = document.getElementById('empty-msg');
+  const visibleCols = COLS.filter(c => isTeamMode() || c.clientVisible);
 
-  thead.innerHTML = '<tr>' + COLS.map(c => `<th class="${c.cls}">${c.label}</th>`).join('') + '</tr>';
+  thead.innerHTML = '<tr>' + visibleCols.map(c => `<th class="${c.cls}">${c.label}</th>`).join('') + '</tr>';
 
   if (!rows.length) {
     tbody.innerHTML = '';
@@ -1442,8 +1449,8 @@ function renderTabela() {
   empty.style.display = 'none';
 
   tbody.innerHTML = rows.map(r => {
-    const a = actIcons(r._t, r._id);
     const canSeeSalary = canViewSalary();
+    const a = isTeamMode() ? actIcons(r._t, r._id) : '';
 
     let re='—', nome='—', tipo='—', funcao='—', funcaoTitle='—', setor='—', adm='—', nasc='—', cbo='—', exp30='—', exp60='—', aso='—', salh='—', salm='—';
     let exp30Cls='', exp60Cls='', asoCls='';
@@ -1497,22 +1504,23 @@ function renderTabela() {
     const salhDisplay = canSeeSalary ? salh : '••••••';
     const salmDisplay = canSeeSalary ? salm : '••••••';
     const salaryCls = canSeeSalary ? '' : ' salary-hidden';
-    return `<tr data-row-id="${r._id}" class="${rowClass}">
-      <td class="col-re mono" title="${re}">${re}</td>
-      <td class="col-nome name-col" title="${nome}">${nome}</td>
-      <td class="col-tipo">${tipo}</td>
-      <td class="col-func" title="${funcaoTitle}">${funcao}</td>
-      <td class="col-setor" title="${setor}">${setor}</td>
-      <td class="col-adm mono">${adm}</td>
-      <td class="col-nasc mono">${nasc}</td>
-      <td class="col-cbo mono" title="${cbo}">${cbo}</td>
-      <td class="col-exp mono ${exp30Cls}">${exp30}</td>
-      <td class="col-exp mono ${exp60Cls}">${exp60}</td>
-      <td class="col-aso mono ${asoCls}">${aso}</td>
-      <td class="col-salh mono${salaryCls}" title="${canSeeSalary ? salh : 'Oculto no modo cliente'}">${salhDisplay}</td>
-      <td class="col-salm mono${salaryCls}" title="${canSeeSalary ? salm : 'Oculto no modo cliente'}">${salmDisplay}</td>
-      <td class="col-acoes">${a}</td>
-    </tr>`;
+    const cells = {
+      re: `<td class="col-re mono" title="${re}">${re}</td>`,
+      nome: `<td class="col-nome name-col" title="${nome}">${nome}</td>`,
+      tipo: `<td class="col-tipo">${tipo}</td>`,
+      funcao: `<td class="col-func" title="${funcaoTitle}">${funcao}</td>`,
+      setor: `<td class="col-setor" title="${setor}">${setor}</td>`,
+      adm: `<td class="col-adm mono">${adm}</td>`,
+      nasc: `<td class="col-nasc mono">${nasc}</td>`,
+      cbo: `<td class="col-cbo mono" title="${cbo}">${cbo}</td>`,
+      exp30: `<td class="col-exp mono ${exp30Cls}">${exp30}</td>`,
+      exp60: `<td class="col-exp mono ${exp60Cls}">${exp60}</td>`,
+      aso: `<td class="col-aso mono ${asoCls}">${aso}</td>`,
+      salh: `<td class="col-salh mono${salaryCls}" title="${canSeeSalary ? salh : 'Oculto no modo cliente'}">${salhDisplay}</td>`,
+      salm: `<td class="col-salm mono${salaryCls}" title="${canSeeSalary ? salm : 'Oculto no modo cliente'}">${salmDisplay}</td>`,
+      acoes: `<td class="col-acoes">${a}</td>`,
+    };
+    return `<tr data-row-id="${r._id}" class="${rowClass}">${visibleCols.map(c => cells[c.key]).join('')}</tr>`;
   }).join('');
   if (recentRowIds.size) {
     clearTimeout(recentRowClearTimer);
@@ -1643,6 +1651,11 @@ baseRank.forEach(r => {
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 function requireAuth(fn) {
+  if (!isTeamMode()) {
+    lockView();
+    showTeamLogin();
+    return;
+  }
   if (autenticado) { fn(); return; }
   pendingAction = fn;
   document.getElementById('input-senha').value = '';
