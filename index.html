@@ -962,10 +962,10 @@ function setAccessMode(mode) {
   if (!el) return;
   el.classList.remove('mode-cliente', 'mode-equipe');
   if (mode === 'cliente') {
-    el.textContent = 'Modo Cliente (salários ocultos)';
+    el.textContent = 'Modo Observação';
     el.classList.add('mode-cliente');
   } else if (mode === 'equipe') {
-    el.textContent = 'Modo Equipe (salários visíveis)';
+    el.textContent = 'Modo Edição';
     el.classList.add('mode-equipe');
   } else {
     el.textContent = 'Modo bloqueado';
