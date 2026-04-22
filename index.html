@@ -586,8 +586,8 @@ table{
       <div id="view-entry-choice">
         <div class="view-entry-help">Selecione como deseja acessar o Sistema.</div>
         <div class="view-entry-actions">
-          <button class="btn" onclick="enterClientView()">MODO VISUALIZAÇÃO</button>
-          <button class="btn btn-blue" onclick="showTeamLogin()">MODO EDIÇÃO</button>
+          <button class="btn" onclick="enterClientView()">Modo Vizualização</button>
+          <button class="btn btn-blue" onclick="showTeamLogin()">Modo Edição</button>
         </div>
       </div>
       <div id="view-entry-team" style="display:none">
@@ -964,10 +964,10 @@ function setAccessMode(mode) {
   if (el) {
     el.classList.remove('mode-cliente', 'mode-equipe');
     if (mode === 'cliente') {
-      el.textContent = 'Modo Cliente';
+      el.textContent = 'Modo Observação';
       el.classList.add('mode-cliente');
     } else if (mode === 'equipe') {
-      el.textContent = 'Modo Equipe';
+      el.textContent = 'Modo Edição';
       el.classList.add('mode-equipe');
     } else {
       el.textContent = 'Modo bloqueado';
