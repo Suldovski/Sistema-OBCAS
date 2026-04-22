@@ -72,6 +72,16 @@
       padding:5px 10px;border:1px solid rgba(255,255,255,.14);
       border-radius:6px;background:rgba(255,255,255,.06)
     }
+    .view-mode-badge{
+      font-size:11px;font-weight:900;letter-spacing:.02em;
+      padding:5px 10px;border-radius:999px;border:1px solid transparent;
+    }
+    .view-mode-badge.mode-cliente{
+      color:#8a5c00;background:#fff4d6;border-color:#fde68a;
+    }
+    .view-mode-badge.mode-equipe{
+      color:#166534;background:#eafff0;border-color:#bbf7d0;
+    }
 
     .btn{
       padding:7px 15px;border-radius:7px;border:1px solid var(--border);
@@ -334,6 +344,14 @@ table{
       100%{transform:scale(1)}
     }
     .pass-err{font-size:12px;color:var(--red);margin-top:6px;display:none;font-weight:900}
+    .view-entry-help{font-size:12px;color:var(--text2);font-weight:700;line-height:1.5}
+    .view-entry-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+    .view-entry-actions .btn{flex:1;justify-content:center}
+    .salary-hidden{
+      filter: blur(3px);
+      user-select: none;
+      pointer-events: none;
+    }
 
     .toast-stack{
       position:fixed;right:16px;bottom:16px;z-index:5000;
@@ -564,14 +582,24 @@ table{
   <!-- LOCK SCREEN (só visual) -->
   <div class="modal-bg open" id="modal-view-pass" style="display:flex">
     <div class="modal" style="width:360px">
-      <h3>Acesso restrito</h3>
-      <div class="form-group">
-        <label>Senha</label>
-        <input type="password" id="view-pass" placeholder="Digite a senha" />
-        <div class="pass-err" id="view-pass-err">Senha incorreta.</div>
+      <h3>Tipo de acesso</h3>
+      <div id="view-entry-choice">
+        <div class="view-entry-help">Selecione como deseja acessar o Sistema OBCAS.</div>
+        <div class="view-entry-actions">
+          <button class="btn" onclick="enterClientView()">Visualizar como Cliente</button>
+          <button class="btn btn-blue" onclick="showTeamLogin()">Acessar como Equipe</button>
+        </div>
       </div>
-      <div class="modal-actions">
-        <button class="btn btn-blue" onclick="unlockView()">Entrar</button>
+      <div id="view-entry-team" style="display:none">
+        <div class="form-group">
+          <label>Senha da equipe</label>
+          <input type="password" id="view-pass" placeholder="Digite a senha especial" />
+          <div class="pass-err" id="view-pass-err">Senha incorreta.</div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn" onclick="showEntryChoice()">Voltar</button>
+          <button class="btn btn-blue" onclick="unlockTeamView()">Entrar</button>
+        </div>
       </div>
     </div>
   </div>
@@ -589,6 +617,7 @@ table{
       </div>
     </div>
     <div class="header-actions">
+      <span class="view-mode-badge" id="view-mode-badge">Modo bloqueado</span>
       <span class="date-badge" id="date-badge"></span>
       <button class="btn btn-blue" title="Adicionar colaborador" onclick="openEditPanel()">Adicionar Colaborador</button>
       <button class="btn" onclick="window.print()">Exportar PDF</button>
@@ -825,16 +854,43 @@ const SENHA = "Obcas2026";
 function lockView() {
   const app = document.getElementById('app-content');
   const modal = document.getElementById('modal-view-pass');
-  const err = document.getElementById('view-pass-err');
-  const input = document.getElementById('view-pass');
-
+  showEntryChoice();
   if (app) app.style.display = 'none';
   if (modal) modal.style.display = 'flex';
+  setAccessMode('bloqueado');
+}
+
+function showEntryChoice() {
+  const err = document.getElementById('view-pass-err');
+  const input = document.getElementById('view-pass');
+  const choice = document.getElementById('view-entry-choice');
+  const team = document.getElementById('view-entry-team');
+  if (choice) choice.style.display = 'block';
+  if (team) team.style.display = 'none';
   if (err) err.style.display = 'none';
   if (input) input.value = '';
 }
 
-function unlockView() {
+function showTeamLogin() {
+  const choice = document.getElementById('view-entry-choice');
+  const team = document.getElementById('view-entry-team');
+  if (choice) choice.style.display = 'none';
+  if (team) team.style.display = 'block';
+}
+
+function enterClientView() {
+  const modal = document.getElementById('modal-view-pass');
+  const app = document.getElementById('app-content');
+  if (app) app.style.display = 'block';
+  if (modal) modal.style.display = 'none';
+  autenticado = false;
+  pendingAction = null;
+  setAccessMode('cliente');
+  renderTabela();
+  iniciarSyncRemoto();
+}
+
+function unlockTeamView() {
   const input = document.getElementById('view-pass');
   const err = document.getElementById('view-pass-err');
   const modal = document.getElementById('modal-view-pass');
@@ -852,6 +908,7 @@ const p = (input && input.value || '').trim();
   // NOVO: autentica tudo de uma vez
   autenticado = true;
   pendingAction = null;
+  setAccessMode('equipe');
 
   renderTabela();
   iniciarSyncRemoto();
@@ -862,7 +919,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const viewPassInput = document.getElementById('view-pass');
   if (viewPassInput) {
     viewPassInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') unlockView();
+      if (e.key === 'Enter') unlockTeamView();
     });
   }
   document.addEventListener('click', (e) => {
@@ -895,6 +952,25 @@ let deleteInProgress = false;
 let syncToastShown = false;
 let remoteToastShown = false;
 let recentRowClearTimer = null;
+let accessMode = 'bloqueado';
+let remoteSyncStarted = false;
+
+function canViewSalary() { return accessMode === 'equipe'; }
+function setAccessMode(mode) {
+  accessMode = mode;
+  const el = document.getElementById('view-mode-badge');
+  if (!el) return;
+  el.classList.remove('mode-cliente', 'mode-equipe');
+  if (mode === 'cliente') {
+    el.textContent = 'Modo Cliente (salários ocultos)';
+    el.classList.add('mode-cliente');
+  } else if (mode === 'equipe') {
+    el.textContent = 'Modo Equipe (salários visíveis)';
+    el.classList.add('mode-equipe');
+  } else {
+    el.textContent = 'Modo bloqueado';
+  }
+}
 
 // Dados locais em memória (renderiza a tela)
 const dados = { efetivo: [], pj: [], terceiros: [], mob: [] };
@@ -972,6 +1048,8 @@ function applyRemoteDoc(data) {
 }
 
 function iniciarSyncRemoto() {
+  if (remoteSyncStarted) return;
+  remoteSyncStarted = true;
   const { onSnapshot } = fb();
   if (!syncToastShown) {
     showToast('info', 'Sincronizando dados...');
@@ -1365,6 +1443,7 @@ function renderTabela() {
 
   tbody.innerHTML = rows.map(r => {
     const a = actIcons(r._t, r._id);
+    const canSeeSalary = canViewSalary();
 
     let re='—', nome='—', tipo='—', funcao='—', funcaoTitle='—', setor='—', adm='—', nasc='—', cbo='—', exp30='—', exp60='—', aso='—', salh='—', salm='—';
     let exp30Cls='', exp60Cls='', asoCls='';
@@ -1415,6 +1494,9 @@ function renderTabela() {
 
     if (recentRowIds.has(r._id)) rowClass = `${rowClass} row-new`.trim();
     if (pendingDeleteId && pendingDeleteId === r._id) rowClass = `${rowClass} row-removing`.trim();
+    const salhDisplay = canSeeSalary ? salh : '••••••';
+    const salmDisplay = canSeeSalary ? salm : '••••••';
+    const salaryCls = canSeeSalary ? '' : ' salary-hidden';
     return `<tr data-row-id="${r._id}" class="${rowClass}">
       <td class="col-re mono" title="${re}">${re}</td>
       <td class="col-nome name-col" title="${nome}">${nome}</td>
@@ -1427,8 +1509,8 @@ function renderTabela() {
       <td class="col-exp mono ${exp30Cls}">${exp30}</td>
       <td class="col-exp mono ${exp60Cls}">${exp60}</td>
       <td class="col-aso mono ${asoCls}">${aso}</td>
-      <td class="col-salh mono">${salh}</td>
-      <td class="col-salm mono">${salm}</td>
+      <td class="col-salh mono${salaryCls}" title="${canSeeSalary ? salh : 'Oculto no modo cliente'}">${salhDisplay}</td>
+      <td class="col-salm mono${salaryCls}" title="${canSeeSalary ? salm : 'Oculto no modo cliente'}">${salmDisplay}</td>
       <td class="col-acoes">${a}</td>
     </tr>`;
   }).join('');
@@ -2212,7 +2294,7 @@ function baixarModelo(){
    INIT
 ============================= */
 // IMPORTANTE: agora quem chama renderTabela() e iniciarSyncRemoto()
-// é o unlockView(). Não inicialize aqui para não vazar dados antes.
+// é o fluxo de acesso (Cliente/Equipe). Não inicialize aqui para não vazar dados antes.
   /* =============================
    UPDATE DE REGISTROS EXISTENTES
 ============================= */
